@@ -1,0 +1,170 @@
+[
+  {
+    "judet": "Alba",
+    "localitati": ["Alba Iulia", "Aiud", "Blaj", "Sebeș", "Cugir", "Ocna Mureș"]
+  },
+  {
+    "judet": "Arad",
+    "localitati": ["Arad", "Ineu", "Lipova", "Pecica", "Sântana", "Curtici"]
+  },
+  {
+    "judet": "Argeș",
+    "localitati": ["Pitești", "Câmpulung", "Curtea de Argeș", "Mioveni", "Costești"]
+  },
+  {
+    "judet": "Bacău",
+    "localitati": ["Bacău", "Onești", "Moinești", "Comănești", "Buhuși", "Târgu Ocna"]
+  },
+  {
+    "judet": "Bihor",
+    "localitati": ["Oradea", "Beiuș", "Marghita", "Salonta", "Aleșd", "Săcueni"]
+  },
+  {
+    "judet": "Bistrița-Năsăud",
+    "localitati": ["Bistrița", "Năsăud", "Sângeorz-Băi", "Beclean"]
+  },
+  {
+    "judet": "Botoșani",
+    "localitati": ["Botoșani", "Dorohoi", "Darabani", "Săveni", "Flămânzi"]
+  },
+  {
+    "judet": "Brașov",
+    "localitati": ["Brașov", "Făgăraș", "Săcele", "Zărnești", "Codlea", "Râșnov"]
+  },
+  {
+    "judet": "Brăila",
+    "localitati": ["Brăila", "Ianca", "Însurăței", "Făurei"]
+  },
+  {
+    "judet": "București",
+    "localitati": ["Sector 1", "Sector 2", "Sector 3", "Sector 4", "Sector 5", "Sector 6"]
+  },
+  {
+    "judet": "Buzău",
+    "localitati": ["Buzău", "Râmnicu Sărat", "Nehoiu", "Pătârlagele", "Pogoanele"]
+  },
+  {
+    "judet": "Caraș-Severin",
+    "localitati": ["Reșița", "Caransebeș", "Bocșa", "Moldova Nouă", "Oravița", "Anina"]
+  },
+  {
+    "judet": "Călărași",
+    "localitati": ["Călărași", "Oltenița", "Budundești", "Lehliu Gară"]
+  },
+  {
+    "judet": "Cluj",
+    "localitati": ["Cluj-Napoca", "Turda", "Dej", "Câmpia Turzii", "Gherla", "Huedin"]
+  },
+  {
+    "judet": "Constanța",
+    "localitati": ["Constanța", "Mangalia", "Medgidia", "Cernavodă", "Năvodari", "Eforie"]
+  },
+  {
+    "judet": "Covasna",
+    "localitati": ["Sfântu Gheorghe", "Târgu Secuiesc", "Covasna", "Baraolt"]
+  },
+  {
+    "judet": "Dâmbovița",
+    "localitati": ["Târgoviște", "Moreni", "Pucioasa", "Găești", "Titu", "Fieni"]
+  },
+  {
+    "judet": "Dolj",
+    "localitati": ["Craiova", "Băilești", "Calafat", "Filiași", "Segarcea"]
+  },
+  {
+    "judet": "Galați",
+    "localitati": ["Galați", "Tecuci", "Târgu Bujor", "Berbești"]
+  },
+  {
+    "judet": "Giurgiu",
+    "localitati": ["Giurgiu", "Bolintin-Vale", "Mihăilești"]
+  },
+  {
+    "judet": "Gorj",
+    "localitati": ["Târgu Jiu", "Motru", "Rovinari", "Bumbești-Jiu", "Novaci", "Țicleni"]
+  },
+  {
+    "judet": "Harghita",
+    "localitati": ["Miercurea Ciuc", "Gheorgheni", "Odorheiu Secuiesc", "Toplița", "Cristuru Secuiesc"]
+  },
+  {
+    "judet": "Hunedoara",
+    "localitati": ["Deva", "Hunedoara", "Petroșani", "Vulcan", "Lupeni", "Orăștie", "Brad"]
+  },
+  {
+    "judet": "Ialomița",
+    "localitati": ["Slobozia", "Fetești", "Urziceni", "Țăndărei", "Amara"]
+  },
+  {
+    "judet": "Iași",
+    "localitati": ["Iași", "Pașcani", "Hârlău", "Târgu Frumos", "Podu Iloaiei"]
+  },
+  {
+    "judet": "Ilfov",
+    "localitati": ["Otopeni", "Voluntari", "Pantelimon", "Buftea", "Bragadiru", "Măgurele", "Chitila"]
+  },
+  {
+    "judet": "Maramureș",
+    "localitati": ["Baia Mare", "Sighetu Marmației", "Borșa", "Vișeu de Sus", "Baia Sprie"]
+  },
+  {
+    "judet": "Mehedinți",
+    "localitati": ["Drobeta-Turnu Severin", "Orșova", "Strehaia", "Vânju Mare"]
+  },
+  {
+    "judet": "Mureș",
+    "localitati": ["Târgu Mureș", "Sighișoara", "Reghin", "Târnăveni", "Ludruș", "Sovata"]
+  },
+  {
+    "judet": "Neamț",
+    "localitati": ["Piatra Neamț", "Roman", "Târgu Neamț", "Bicaz", "Roznov"]
+  },
+  {
+    "judet": "Olt",
+    "localitati": ["Slatina", "Caracal", "Roșiori de Vede", "Balș", "Corabia", "Scornicești"]
+  },
+  {
+    "judet": "Prahova",
+    "localitati": ["Ploiești", "Câmpina", "Baicoi", "Breaza", "Mizil", "Comarnic", "Sinaia", "Bușteni"]
+  },
+  {
+    "judet": "Satu Mare",
+    "localitati": ["Satu Mare", "Carei", "Negrești-Oaș", "Tășnad"]
+  },
+  {
+    "judet": "Sălaj",
+    "localitati": ["Zalău", "Șimleu Silvaniei", "Jibou", "Cehu Silvaniei"]
+  },
+  {
+    "judet": "Sibiu",
+    "localitati": ["Sibiu", "Mediaș", "Cisnădie", "Avrig", "Agnita", "Dumbrăveni"]
+  },
+  {
+    "judet": "Suceava",
+    "localitati": ["Suceava", "Fălticeni", "Rădăuți", "Câmpulung Moldovenesc", "Vatra Dornei", "Gura Humorului"]
+  },
+  {
+    "judet": "Teleorman",
+    "localitati": ["Alexandria", "Roșiorii de Vede", "Turnu Măgurele", "Zimnicea", "Videle"]
+  },
+  {
+    "judet": "Timiș",
+    "localitati": ["Timișoara", "Lugoj", "Sânnicolau Mare", "Jimbolia", "Recaș", "Făget"]
+  },
+  {
+    "judet": "Tulcea",
+    "localitati": ["Tulcea", "Babadag", "Măcin", "Sulina", "Isaccea"]
+  },
+  {
+    "judet": "Vaslui",
+    "localitati": ["Vaslui", "Bârlad", "Huși", "Negrești", "Murgeni"]
+  },
+  {
+    "judet": "Vâlcea",
+    "localitati": ["Râmnicu Vâlcea", "Drăgășani", "Călimănești", "Brezoi", "Horezu"]
+  },
+  {
+    "judet": "Vrancea",
+    "localitati": ["Focșani", "Adjud", "Mărășești", "Odobești", "Panciu"]
+  }
+]

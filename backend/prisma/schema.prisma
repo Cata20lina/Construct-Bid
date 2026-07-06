@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  SUBCONTRACTOR
+  DEZVOLTATOR
+}
+
+enum TipOfertare {
+  statica
+  dinamica
+}
+
+enum StatusOferta {
+  in_asteptare
+  acceptata
+  respinsa
+  in_negociere
+  castigatoare
+  depasita
+}
+
+enum TipNotificare {
+  oferta
+  castigat
+  proiect
+  alerta
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  parola   String
+  nume     String
+  cui      String
+  telefon  String
+  judet    String
+  rol      Rol    @default(SUBCONTRACTOR)
+  verificat Boolean @default(false)
+
+  // ── Token-uri platformă — se consumă la publicarea de anunțuri ──
+  tokenuri Int @default(50)
+
+  descriere     String  @default("")
+  aniExperienta Int?
+  nrAngajati    Int?
+  categoriiServicii String[] @default([])
+  judeteServicii    String[] @default([])
+
+  cuiVerificat        Boolean   @default(false)
+  cuiDenumireOficiala String    @default("")
+  cuiVerificatLa      DateTime?
+
+  // ── Verificare cont prin cod trimis pe email ──
+  codVerificare       String?
+  codVerificareExpira DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lucrari         Lucrare[]
+  disponibilitati Disponibilitate[]
+
+  proiecte          Project[] @relation("DezvoltatorProiecte")
+  proiecteCastigate Project[] @relation("CastigatorProiecte")
+  oferte            Oferta[]
+  mesaje            Mesaj[]
+  notificari        Notificare[]
+
+  @@map("users")
+}
+
+model Lucrare {
+  id        String   @id @default(cuid())
+  titlu     String
+  descriere String   @default("")
+  an        Int?
+  categorie String   @default("")
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("lucrari")
+}
+
+model Disponibilitate {
+  id    String   @id @default(cuid())
+  start DateTime
+  end   DateTime
+  nota  String   @default("")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("disponibilitati")
+}
+
+model Project {
+  id           String    @id @default(cuid())
+  titlu        String
+  descriere    String
+  locatie      String
+  judet        String?
+  oras         String?
+  buget        String
+  bugetValoare Float?
+  latitudine   Float?
+  longitudine  Float?
+  urgent       Boolean   @default(false)
+  zile         Int
+  deadline     DateTime?
+  categorie    String    @default("rezidential")
+
+  // ── Anunț de "prospectare piață" — apare DOAR în pagina Prospectare Piață,
+  //    nu în lista normală de șantiere. Subcontractorii pot oferta la fel ca
+  //    la un anunț normal, dar sunt înștiințați clar că e un test de piață. ──
+  esteProspectare Boolean @default(false)
+
+  dezvoltator   User   @relation("DezvoltatorProiecte", fields: [dezvoltatorId], references: [id])
+  dezvoltatorId String
+
+  activ Boolean @default(true)
+
+  tipOfertare         TipOfertare @default(statica)
+  licitatieStart      DateTime?
+  licitatieEnd        DateTime?
+  licitatieFinalizata Boolean     @default(false)
+
+  castigator   User?   @relation("CastigatorProiecte", fields: [castigatorId], references: [id])
+  castigatorId String?
+
+  ofertaCastigatoare   Oferta? @relation("OfertaCastigatoareProiect", fields: [ofertaCastigatoareId], references: [id])
+  ofertaCastigatoareId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  oferte Oferta[] @relation("OferteProiect")
+  mesaje Mesaj[]
+
+  @@map("projects")
+}
+
+model Oferta {
+  id             String       @id @default(cuid())
+  valoare        Float
+  moneda         String       @default("RON")
+  descriere      String       @default("")
+  termenExecutie Int
+  status         StatusOferta @default(in_asteptare)
+  documente      String[]     @default([])
+  activa         Boolean      @default(true)
+
+  proiect   Project @relation("OferteProiect", fields: [proiectId], references: [id], onDelete: Cascade)
+  proiectId String
+
+  subcontractor   User   @relation(fields: [subcontractorId], references: [id])
+  subcontractorId String
+
+  proiectCastigat Project? @relation("OfertaCastigatoareProiect")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([proiectId, valoare])
+  @@index([proiectId, subcontractorId, activa])
+  @@map("oferte")
+}
+
+model Mesaj {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  proiect   Project @relation(fields: [proiectId], references: [id], onDelete: Cascade)
+  proiectId String
+
+  expeditor   User   @relation(fields: [expeditorId], references: [id])
+  expeditorId String
+
+  @@index([proiectId, createdAt])
+  @@map("mesaje")
+}
+
+model Notificare {
+  id      String        @id @default(cuid())
+  tip     TipNotificare
+  titlu   String
+  mesaj   String
+  citita  Boolean       @default(false)
+
+  // Legătură opțională către proiectul/oferta la care se referă, pentru navigare la click
+  proiectId String?
+  ofertaId  String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, citita, createdAt])
+  @@map("notificari")
+}
