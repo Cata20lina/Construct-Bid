@@ -753,7 +753,7 @@ function OferteleDezvoltatorStatic({ proiect, t, onSelectOferta, StatusBadge }) 
 
   return (
     <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
-      <SectionHeader icon={<Users size={13} />} label={`Cotații Primite (${oferte.length})`} t={t} />
+      <SectionHeader icon={<Users size={13} />} label={`oferte Primite (${oferte.length})`} t={t} />
       <div style={{ padding: (seIncarca || oferte.length === 0) ? '32px 24px' : '16px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {seIncarca ? (
           <p style={{ color: t.textSecundar, fontSize: '13px', margin: 0, textAlign: 'center' }}>Se încarcă...</p>

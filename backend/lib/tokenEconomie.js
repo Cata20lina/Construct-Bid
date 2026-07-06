@@ -1,8 +1,10 @@
 const prisma = require('./prisma');
 const { PLANURI } = require('./planuriAbonament');
 
-// ─── Costuri (în tokenuri) pentru acțiunile din modulul de Prospectare Piață ──
+// ─── Costuri (în tokenuri) pentru acțiunile din platformă ───────────────────
 const COSTURI = {
+  POSTARE_ANUNT: 5,              // publicarea unui anunț normal (dezvoltator)
+  POSTARE_ANUNT_PROSPECTARE: 3,  // publicarea unui anunț de "prospectare piață" (cost redus)
   RAPORT_PIATA: 8,       // generarea raportului detaliat de cerere/concurență
   OPORTUNITATI: 4,       // calcularea oportunităților personalizate (subcontractor)
 };
@@ -41,11 +43,11 @@ async function asigureTokenuriLunare(user) {
     if (!proaspat || inAceeasiLuna(proaspat.ultimaAlocareTokenuri)) return null;
 
     const plan = PLANURI[proaspat.planAbonament] || PLANURI.GRATUIT;
-    const nouSold = proaspat.soldTokenuri + plan.tokenuriLunare;
+    const nouSold = proaspat.tokenuri + plan.tokenuriLunare;
 
     const actualizat = await tx.user.update({
       where: { id: user.id },
-      data: { soldTokenuri: nouSold, ultimaAlocareTokenuri: acum },
+      data: { tokenuri: nouSold, ultimaAlocareTokenuri: acum },
     });
 
     await tx.tranzactieToken.create({
@@ -70,8 +72,8 @@ async function crediteazaTokenuri({ userId, suma, tip, descriere = '', proiectId
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error('Utilizatorul nu există.');
 
-    const nouSold = user.soldTokenuri + suma;
-    const actualizat = await tx.user.update({ where: { id: userId }, data: { soldTokenuri: nouSold } });
+    const nouSold = user.tokenuri + suma;
+    const actualizat = await tx.user.update({ where: { id: userId }, data: { tokenuri: nouSold } });
 
     await tx.tranzactieToken.create({
       data: { userId, tip, suma, soldDupa: nouSold, descriere, proiectId, ofertaId },
@@ -81,7 +83,7 @@ async function crediteazaTokenuri({ userId, suma, tip, descriere = '', proiectId
   });
 }
 
-// ── Cheltuire tokenuri (ex: generare raport de prospectare) ──
+// ── Cheltuire tokenuri (ex: publicare anunț, generare raport de prospectare) ──
 // Aruncă EroareTokeniInsuficienti dacă soldul nu ajunge.
 async function consumaTokenuri({ userId, suma, tip, descriere = '', proiectId, ofertaId }) {
   if (!(suma > 0)) throw new Error('Suma de cheltuit trebuie să fie pozitivă.');
@@ -89,12 +91,12 @@ async function consumaTokenuri({ userId, suma, tip, descriere = '', proiectId, o
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error('Utilizatorul nu există.');
-    if (user.soldTokenuri < suma) {
-      throw new EroareTokeniInsuficienti(suma, user.soldTokenuri);
+    if (user.tokenuri < suma) {
+      throw new EroareTokeniInsuficienti(suma, user.tokenuri);
     }
 
-    const nouSold = user.soldTokenuri - suma;
-    const actualizat = await tx.user.update({ where: { id: userId }, data: { soldTokenuri: nouSold } });
+    const nouSold = user.tokenuri - suma;
+    const actualizat = await tx.user.update({ where: { id: userId }, data: { tokenuri: nouSold } });
 
     await tx.tranzactieToken.create({
       data: { userId, tip, suma: -suma, soldDupa: nouSold, descriere, proiectId, ofertaId },

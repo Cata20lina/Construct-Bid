@@ -17,6 +17,8 @@ const ICON_PLAN = {
 const ETICHETA_TRANZACTIE = {
   ALOCARE_ABONAMENT: 'Alocare abonament',
   CUMPARARE: 'Cumpărare tokenuri',
+  CHELTUIALA_ANUNT: 'Publicare anunț',
+  CHELTUIALA_ANUNT_PROSPECTARE: 'Publicare anunț — prospectare piață',
   CHELTUIALA_PROSPECTARE: 'Prospectare piață',
   RECOMPENSA_OFERTA: 'Recompensă — ofertă depusă',
   RECOMPENSA_CASTIG: 'Recompensă — ofertă câștigată',
@@ -64,7 +66,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
     try {
       const rezultat = await apiUpgradeAbonament(planId);
       setMesajSucces(rezultat.mesaj);
-      onSoldActualizat && onSoldActualizat(rezultat.soldTokenuri);
+      onSoldActualizat && onSoldActualizat(rezultat.tokenuri);
       onUserActualizat && onUserActualizat();
       incarca();
     } catch (err) {
@@ -81,7 +83,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
     try {
       const rezultat = await apiCumparaTokenuri(pachetId);
       setMesajSucces(rezultat.mesaj);
-      onSoldActualizat && onSoldActualizat(rezultat.soldTokenuri);
+      onSoldActualizat && onSoldActualizat(rezultat.tokenuri);
       incarca();
     } catch (err) {
       setEroare(err.message || 'Nu s-au putut cumpăra tokenurile.');
@@ -109,8 +111,8 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
         <span style={{ color: t.amber, fontSize: '13px', fontWeight: '750', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Abonament & Tokenuri</span>
         <h2 style={{ fontSize: '26px', fontWeight: '850', margin: '6px 0 0 0', color: t.textPrincipal }}>Gestionează abonamentul și soldul de tokenuri</h2>
         <p style={{ color: t.textSecundar, fontSize: '14px', margin: '4px 0 0 0' }}>
-          Tokenurile se folosesc pentru modulul de Prospectare Piață. Le primești lunar din abonament, le mai poți
-          cumpăra separat, sau le câștigi automat când depui ori câștigi oferte.
+          Tokenurile se cheltuiesc la publicarea unui anunț. Le primești lunar, automat, din abonament,
+          sau le mai poți cumpăra separat, oricând ai nevoie de mai multe.
         </p>
       </div>
 
@@ -133,7 +135,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
           </div>
           <div>
             <div style={{ fontSize: '12px', color: t.textSecundar, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Sold curent</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: '30px', fontWeight: '850', color: t.textPrincipal }}>{sold?.soldTokenuri ?? user?.soldTokenuri ?? 0} <span style={{ fontSize: '15px', color: t.textSecundar, fontWeight: '600' }}>tokenuri</span></div>
+            <div style={{ fontFamily: t.fontMono, fontSize: '30px', fontWeight: '850', color: t.textPrincipal }}>{sold?.tokenuri ?? user?.tokenuri ?? 0} <span style={{ fontSize: '15px', color: t.textSecundar, fontWeight: '600' }}>tokenuri</span></div>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -147,9 +149,11 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
         <Card t={t}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
             <Zap size={18} style={{ color: t.accent }} />
-            <h3 style={{ fontSize: '16px', fontWeight: '750', margin: 0, color: t.textPrincipal }}>Costuri Prospectare Piață</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: '750', margin: 0, color: t.textPrincipal }}>Ce costă în tokenuri</h3>
           </div>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '13.5px', color: t.textSecundar }}>
+            <span>Publicare anunț: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{sold.costuri.POSTARE_ANUNT} tokenuri</b></span>
+            <span>Publicare anunț de prospectare piață: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{sold.costuri.POSTARE_ANUNT_PROSPECTARE} tokenuri</b></span>
             <span>Raport detaliat de piață: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{sold.costuri.RAPORT_PIATA} tokenuri</b> / generare</span>
             <span>Oportunități personalizate: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{sold.costuri.OPORTUNITATI} tokenuri</b> / generare</span>
           </div>
@@ -250,7 +254,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
           <h3 style={{ fontSize: '16px', fontWeight: '750', margin: 0, color: t.textPrincipal }}>Câștigă tokenuri gratuit</h3>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13.5px', color: t.textSecundar }}>
-          <div>• Depui o ofertă pentru un proiect → primești automat câteva tokenuri de recompensă.</div>
+          <div>• Fiecare abonament îți acordă automat, în fiecare lună, pachetul lunar de tokenuri al planului tău.</div>
         </div>
       </Card>
 

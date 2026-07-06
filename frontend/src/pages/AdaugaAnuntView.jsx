@@ -147,7 +147,7 @@ export default function AdaugaAnuntView({
           Lansează un Anunț de Subcontractare
         </h2>
         <p style={{ color: t.textSecundar, fontSize: '14px', margin: 0, lineHeight: 1.6 }}>
-          Completează cerințele tehnice pentru a primi cotații directe de la firme specializate.
+          Completează cerințele tehnice pentru a primi oferte directe de la firme specializate.
         </p>
       </div>
 
@@ -342,7 +342,7 @@ export default function AdaugaAnuntView({
         {/* Bloc 4 — Mod de Ofertare (DINAMICĂ vs STATICĂ) */}
         <FormSection label="4. Modul de Ofertare" t={t}>
           <div>
-            <label style={labelBase}><Gauge size={12} /> Cum vrei să primești cotații?</label>
+            <label style={labelBase}><Gauge size={12} /> Cum vrei să primești oferte?</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 
               {/* Card STATICĂ */}
@@ -452,7 +452,7 @@ export default function AdaugaAnuntView({
               style={{ ...inputBase('descriere'), resize: 'vertical', lineHeight: 1.65 }}
             />
             <div style={{ fontSize: '11px', color: t.textSecundar, marginTop: '6px' }}>
-              Cu cât ești mai specific, cu atât primești cotații mai precise.
+              Cu cât ești mai specific, cu atât primești oferte mai precise.
             </div>
           </div>
         </FormSection>

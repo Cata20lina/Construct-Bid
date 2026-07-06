@@ -254,8 +254,8 @@ export default function OfertaDetailView({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center', textAlign: 'center' }}>
               <p style={{ margin: 0, fontSize: '14px', color: t.textPrincipal, fontWeight: '700' }}>
                 {confirmare === 'accepta'
-                  ? 'Confirmi acceptarea acestei cotații? Restul ofertelor în așteptare vor fi respinse automat, iar datele de contact vor deveni vizibile pentru ambele părți.'
-                  : 'Confirmi respingerea acestei cotații?'}
+                  ? 'Confirmi acceptarea acestei oferte? Restul ofertelor în așteptare vor fi respinse automat, iar datele de contact vor deveni vizibile pentru ambele părți.'
+                  : 'Confirmi respingerea acestei oferte?'}
               </p>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button onClick={confirmare === 'accepta' ? handleAccepta : handleRefuza}

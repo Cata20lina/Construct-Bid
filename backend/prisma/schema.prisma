@@ -33,6 +33,12 @@ enum TipNotificare {
   alerta
 }
 
+enum PlanAbonament {
+  GRATUIT
+  PRO
+  ENTERPRISE
+}
+
 model User {
   id       String @id @default(cuid())
   email    String @unique
@@ -45,7 +51,11 @@ model User {
   verificat Boolean @default(false)
 
   // ── Token-uri platformă — se consumă la publicarea de anunțuri ──
-  tokenuri Int @default(50)
+  tokenuri Int @default(20)
+
+  // ── Abonament: fiecare plan alocă lunar un pachet gratuit de tokenuri ──
+  planAbonament         PlanAbonament @default(GRATUIT)
+  ultimaAlocareTokenuri DateTime?
 
   descriere     String  @default("")
   aniExperienta Int?
@@ -72,6 +82,7 @@ model User {
   oferte            Oferta[]
   mesaje            Mesaj[]
   notificari        Notificare[]
+  tranzactiiTokenuri TranzactieToken[]
 
   @@map("users")
 }
@@ -207,4 +218,26 @@ model Notificare {
 
   @@index([userId, citita, createdAt])
   @@map("notificari")
+}
+
+// ── Istoricul mișcărilor de tokenuri (alocări din abonament, cumpărări,
+//    cheltuieli la publicarea de anunțuri, recompense etc.) ──
+model TranzactieToken {
+  id        String   @id @default(cuid())
+  tip       String
+  suma      Int
+  soldDupa  Int
+  descriere String   @default("")
+
+  // Legătură opțională către proiectul/oferta care a generat mișcarea
+  proiectId String?
+  ofertaId  String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("tranzactii_tokenuri")
 }

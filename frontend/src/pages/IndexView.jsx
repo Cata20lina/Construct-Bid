@@ -346,6 +346,16 @@ export default function IndexView({ t, setActiveTab, user }) {
         <p style={{ fontSize: '12.5px', color: t.textSecundar, margin: '18px 0 0' }}>
           Soldul tău actual de token-uri: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{user?.tokenuri ?? 0}</b>
         </p>
+        <button
+          onClick={() => setActiveTab && setActiveTab('abonament')}
+          style={{
+            marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px',
+            padding: '10px 18px', borderRadius: '8px', border: 'none',
+            backgroundColor: t.accent, color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+          }}
+        >
+          <Coins size={15} /> Vezi abonamente și cumpără tokenuri
+        </button>
       </div>
 
       {/* ── CTA final ── */}

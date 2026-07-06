@@ -3,8 +3,13 @@
 // Tot ce înseamnă utilizatori, proiecte și oferte se stochează REAL în MongoDB,
 // prin acest API — nimic nu mai e ținut în localStorage (doar token-ul de sesiune).
 
-export const API_URL = 'http://localhost:5000/api';
-export const SERVER_URL = 'http://localhost:5000';
+// În producție, setează VITE_API_URL în variabilele de mediu ale hosting-ului
+// (ex: Vercel) la adresa backend-ului tău (ex: https://constructbid-api.onrender.com).
+// Local, dacă nu setezi nimic, folosește implicit serverul de pe localhost:5000.
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export const API_URL = `${BASE_URL}/api`;
+export const SERVER_URL = BASE_URL;
 
 const TOKEN_KEY = 'cb_token';
 
@@ -293,5 +298,39 @@ export async function apiCursValutar() {
 export async function apiVremeProiect(oras, judet) {
   const params = new URLSearchParams({ oras: oras || '', judet: judet || '' }).toString();
   const res = await fetch(`${API_URL}/utile/vreme?${params}`);
+  return handleResponse(res);
+}
+
+// ─── ABONAMENT & TOKENURI ─────────────────────────────────────────────────────
+export async function apiPlanuriAbonament() {
+  const res = await fetch(`${API_URL}/tokenuri/planuri`);
+  return handleResponse(res);
+}
+
+export async function apiSoldTokenuri() {
+  const res = await fetch(`${API_URL}/tokenuri/sold`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiIstoricTokenuri() {
+  const res = await fetch(`${API_URL}/tokenuri/istoric`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiUpgradeAbonament(plan) {
+  const res = await fetch(`${API_URL}/tokenuri/upgrade`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ plan }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiCumparaTokenuri(pachetId) {
+  const res = await fetch(`${API_URL}/tokenuri/cumpara`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ pachetId }),
+  });
   return handleResponse(res);
 }

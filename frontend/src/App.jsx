@@ -9,6 +9,7 @@ import NotificariView from './pages/NotificariView.jsx';
 import ProspectarePiataView from './pages/ProspectarePiataView.jsx';
 import OfertaDetailView from './pages/OfertaDetailView.jsx';
 import ProfilView from './pages/ProfilView.jsx';
+import AbonamentView from './pages/AbonamentView.jsx';
 
 import {
   getToken, setToken, apiMe, apiListaProiecte, apiCreazaProiect,
@@ -463,6 +464,21 @@ export default function App() {
             loading={loadingAnunt}
             error={errorAnunt}
             success={successAnunt}
+          />
+        )}
+
+        {activeTab === 'abonament' && (
+          <AbonamentView
+            t={t}
+            user={user}
+            onSoldActualizat={(tokenuriNoi) => {
+              if (typeof tokenuriNoi === 'number') {
+                setUser(prev => prev ? { ...prev, tokenuri: tokenuriNoi } : prev);
+              }
+            }}
+            onUserActualizat={() => {
+              apiMe().then(data => setUser(data.utilizator)).catch(() => {});
+            }}
           />
         )}
 

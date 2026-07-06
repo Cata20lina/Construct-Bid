@@ -15,6 +15,7 @@ const utileRoutes = require('./routes/utile');
 const chatRoutes = require('./routes/chat');
 const notificariRoutes = require('./routes/notificari');
 const prospectareRoutes = require('./routes/prospectare');
+const tokenuriRoutes = require('./routes/tokenuri');
 
 const { initSockets } = require('./sockets');
 const { reporneșteTimerele } = require('./services/licitatie');
@@ -23,8 +24,15 @@ const app = express();
 const server = http.createServer(app);
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
+// În producție, setează FRONTEND_URL (poți pune mai multe, separate prin
+// virgulă) la adresa unde e găzduit frontend-ul (ex: https://constructbid.vercel.app).
+const originuriProductie = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // Vite sau CRA
+  origin: ['http://localhost:5173', 'http://localhost:3000', ...originuriProductie],
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -43,6 +51,7 @@ app.use('/api/cui', cuiRoutes);
 app.use('/api/utile', utileRoutes);
 app.use('/api/notificari', notificariRoutes);
 app.use('/api/prospectare', prospectareRoutes);
+app.use('/api/tokenuri', tokenuriRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));

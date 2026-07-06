@@ -5,14 +5,17 @@ const { protejat, doarRol } = require('../middleware/auth');
 const { programeazaFinalizare } = require('../services/licitatie');
 const { serializeProject } = require('../lib/serialize');
 const { geocodeazaAdresa } = require('../lib/geocode');
+const { COSTURI } = require('../lib/tokenEconomie');
 
 const MINI_SELECT = { id: true, nume: true, judet: true, cui: true };
 
 // ── Cost în token-uri la publicarea unui anunț ──
 // Un anunț de "prospectare piață" costă mai puțin (nu e o subcontractare
 // fermă, ci un test de cerere pe piață), dar tot consumă token-uri.
-const COST_ANUNT_NORMAL = 5;
-const COST_ANUNT_PROSPECTARE = 3;
+// (valorile sunt centralizate în lib/tokenEconomie.js, ca să se potrivească
+// cu ce e afișat pe pagina de Abonament)
+const COST_ANUNT_NORMAL = COSTURI.POSTARE_ANUNT;
+const COST_ANUNT_PROSPECTARE = COSTURI.POSTARE_ANUNT_PROSPECTARE;
 
 // ─── GET /api/projects ────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -113,12 +116,25 @@ router.post('/', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
 
     const coordonate = await geocodeazaAdresa(`${locatie}${judet ? ', ' + judet : ''}, România`);
 
-    // Scădem token-urile și creăm anunțul atomic — dacă unul eșuează, nu se
-    // consumă token-uri fără să existe anunțul, și invers.
-    const [utilizatorActualizat, proiect] = await prisma.$transaction([
+    // Scădem token-urile, înregistrăm mișcarea în istoric și creăm anunțul
+    // atomic — dacă unul eșuează, nu se consumă token-uri fără să existe
+    // anunțul, și invers.
+    const soldDupaConsum = (req.utilizator.tokenuri ?? 0) - costTokenuri;
+    const [utilizatorActualizat, , proiect] = await prisma.$transaction([
       prisma.user.update({
         where: { id: req.utilizator.id },
         data: { tokenuri: { decrement: costTokenuri } },
+      }),
+      prisma.tranzactieToken.create({
+        data: {
+          userId: req.utilizator.id,
+          tip: prospectareFlag ? 'CHELTUIALA_ANUNT_PROSPECTARE' : 'CHELTUIALA_ANUNT',
+          suma: -costTokenuri,
+          soldDupa: soldDupaConsum,
+          descriere: prospectareFlag
+            ? `Publicare anunț de prospectare piață — "${titlu}"`
+            : `Publicare anunț — "${titlu}"`,
+        },
       }),
       prisma.project.create({
         data: {

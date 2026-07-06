@@ -27,7 +27,7 @@ router.get('/planuri', (req, res) => {
 // ─── GET /api/tokenuri/sold ─────────────────────────────────────────────────────
 router.get('/sold', protejat, (req, res) => {
   res.json({
-    soldTokenuri: req.utilizator.soldTokenuri,
+    tokenuri: req.utilizator.tokenuri,
     planAbonament: req.utilizator.planAbonament,
     plan: PLANURI[req.utilizator.planAbonament] || PLANURI.GRATUIT,
     costuri: COSTURI,
@@ -80,7 +80,7 @@ router.post('/upgrade', protejat, async (req, res) => {
     res.json({
       mesaj: `Plan actualizat la ${planNou.nume}.`,
       planAbonament: actualizat.planAbonament,
-      soldTokenuri: actualizat.soldTokenuri,
+      tokenuri: actualizat.tokenuri,
     });
   } catch (err) {
     console.error('[tokenuri POST /upgrade]', err);
@@ -119,7 +119,7 @@ router.post('/cumpara', protejat, async (req, res) => {
       descriere,
     });
 
-    res.json({ mesaj: `${tokenuri} tokenuri adăugate.`, soldTokenuri: actualizat.soldTokenuri });
+    res.json({ mesaj: `${tokenuri} tokenuri adăugate.`, tokenuri: actualizat.tokenuri });
   } catch (err) {
     console.error('[tokenuri POST /cumpara]', err);
     res.status(500).json({ mesaj: 'Eroare la cumpărarea tokenurilor.' });

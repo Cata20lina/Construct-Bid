@@ -35,6 +35,7 @@ function serializeUserFull(u) {
     cuiVerificat: u.cuiVerificat || false,
     cuiDenumireOficiala: u.cuiDenumireOficiala || '',
     tokenuri: typeof u.tokenuri === 'number' ? u.tokenuri : 0,
+    planAbonament: u.planAbonament || 'GRATUIT',
   };
 }
 
