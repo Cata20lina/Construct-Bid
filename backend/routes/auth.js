@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
-const { serializeUserFull } = require('../lib/serialize');
+const { serializeUserFull, serializeEvaluare } = require('../lib/serialize');
 const { protejat } = require('../middleware/auth');
 const { trimiteCodVerificare, genereazaCod } = require('../lib/mailer');
 
@@ -39,7 +39,7 @@ router.post('/register', async (req, res) => {
         codVerificare: cod,
         codVerificareExpira: new Date(Date.now() + DURATA_COD_MS),
       },
-      include: { lucrari: true, disponibilitati: true },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
 
     try {
@@ -65,7 +65,7 @@ router.post('/login', async (req, res) => {
     }
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
-      include: { lucrari: true, disponibilitati: true },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     if (!user) {
       return res.status(401).json({ mesaj: 'Email sau parola incorecta.' });
@@ -87,7 +87,7 @@ router.get('/me', protejat, (req, res) => {
 
 router.put('/profil', protejat, async (req, res) => {
   try {
-    const { descriere, aniExperienta, nrAngajati, categoriiServicii, judeteServicii, telefon } = req.body;
+    const { descriere, aniExperienta, nrAngajati, categoriiServicii, judeteServicii, telefon, siteWeb } = req.body;
     const data = {};
 
     if (descriere !== undefined) data.descriere = String(descriere).slice(0, 1000);
@@ -96,11 +96,12 @@ router.put('/profil', protejat, async (req, res) => {
     if (Array.isArray(categoriiServicii)) data.categoriiServicii = categoriiServicii;
     if (Array.isArray(judeteServicii)) data.judeteServicii = judeteServicii;
     if (telefon) data.telefon = telefon;
+    if (siteWeb !== undefined) data.siteWeb = String(siteWeb).trim().slice(0, 300);
 
     const u = await prisma.user.update({
       where: { id: req.utilizator.id },
       data,
-      include: { lucrari: true, disponibilitati: true },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.json({ utilizator: serializeUserFull(u) });
   } catch (err) {
@@ -130,7 +131,7 @@ router.post('/lucrari', protejat, async (req, res) => {
     });
     const u = await prisma.user.findUnique({
       where: { id: req.utilizator.id },
-      include: { lucrari: { orderBy: { createdAt: 'desc' } }, disponibilitati: true },
+      include: { lucrari: { orderBy: { createdAt: 'desc' } }, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.status(201).json({ utilizator: serializeUserFull(u) });
   } catch (err) {
@@ -144,7 +145,7 @@ router.delete('/lucrari/:lucrareId', protejat, async (req, res) => {
     await prisma.lucrare.deleteMany({ where: { id: req.params.lucrareId, userId: req.utilizator.id } });
     const u = await prisma.user.findUnique({
       where: { id: req.utilizator.id },
-      include: { lucrari: { orderBy: { createdAt: 'desc' } }, disponibilitati: true },
+      include: { lucrari: { orderBy: { createdAt: 'desc' } }, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.json({ utilizator: serializeUserFull(u) });
   } catch (err) {
@@ -173,7 +174,7 @@ router.post('/disponibilitate', protejat, async (req, res) => {
     });
     const u = await prisma.user.findUnique({
       where: { id: req.utilizator.id },
-      include: { lucrari: true, disponibilitati: { orderBy: { start: 'asc' } } },
+      include: { lucrari: true, disponibilitati: { orderBy: { start: 'asc' } }, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.status(201).json({ utilizator: serializeUserFull(u) });
   } catch (err) {
@@ -187,12 +188,77 @@ router.delete('/disponibilitate/:intervalId', protejat, async (req, res) => {
     await prisma.disponibilitate.deleteMany({ where: { id: req.params.intervalId, userId: req.utilizator.id } });
     const u = await prisma.user.findUnique({
       where: { id: req.utilizator.id },
-      include: { lucrari: true, disponibilitati: { orderBy: { start: 'asc' } } },
+      include: { lucrari: true, disponibilitati: { orderBy: { start: 'asc' } }, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.json({ utilizator: serializeUserFull(u) });
   } catch (err) {
     console.error('[auth DELETE /disponibilitate/:id]', err);
     res.status(500).json({ mesaj: 'Eroare la ștergerea intervalului.' });
+  }
+});
+
+// ─── RECOMANDĂRI / REFERINȚE (contracte încheiate, cu document justificativ) —
+//     doar SUBCONTRACTOR ────────────────────────────────────────────────────
+router.post('/recomandari', protejat, async (req, res) => {
+  try {
+    if (req.utilizator.rol !== 'SUBCONTRACTOR') {
+      return res.status(403).json({ mesaj: 'Doar subcontractorii pot adăuga recomandări.' });
+    }
+    const { categorie, valoareContract, documentUrl, documentNume, descriere } = req.body;
+    if (!categorie || !categorie.trim()) {
+      return res.status(400).json({ mesaj: 'Categoria lucrării este obligatorie.' });
+    }
+    await prisma.recomandare.create({
+      data: {
+        userId: req.utilizator.id,
+        categorie: categorie.trim(),
+        valoareContract: valoareContract !== undefined && valoareContract !== null && valoareContract !== ''
+          ? Number(valoareContract) : null,
+        documentUrl: (documentUrl || '').trim(),
+        documentNume: (documentNume || '').trim(),
+        descriere: (descriere || '').trim().slice(0, 500),
+      },
+    });
+    const u = await prisma.user.findUnique({
+      where: { id: req.utilizator.id },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
+    });
+    res.status(201).json({ utilizator: serializeUserFull(u) });
+  } catch (err) {
+    console.error('[auth POST /recomandari]', err);
+    res.status(500).json({ mesaj: 'Eroare la adăugarea recomandării.' });
+  }
+});
+
+router.delete('/recomandari/:recomandareId', protejat, async (req, res) => {
+  try {
+    await prisma.recomandare.deleteMany({ where: { id: req.params.recomandareId, userId: req.utilizator.id } });
+    const u = await prisma.user.findUnique({
+      where: { id: req.utilizator.id },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
+    });
+    res.json({ utilizator: serializeUserFull(u) });
+  } catch (err) {
+    console.error('[auth DELETE /recomandari/:id]', err);
+    res.status(500).json({ mesaj: 'Eroare la ștergerea recomandării.' });
+  }
+});
+
+// ─── RATING — evaluările primite de contul curent (subcontractor) ────────────
+router.get('/evaluari-primite', protejat, async (req, res) => {
+  try {
+    const evaluari = await prisma.evaluare.findMany({
+      where: { evaluatId: req.utilizator.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      evaluari: evaluari.map(serializeEvaluare),
+      ratingMediu: req.utilizator.ratingMediu || 0,
+      ratingNumarEvaluari: req.utilizator.ratingNumarEvaluari || 0,
+    });
+  } catch (err) {
+    console.error('[auth GET /evaluari-primite]', err);
+    res.status(500).json({ mesaj: 'Eroare la încărcarea evaluărilor.' });
   }
 });
 
@@ -216,7 +282,7 @@ router.post('/verifica-cont', protejat, async (req, res) => {
     const u = await prisma.user.update({
       where: { id: req.utilizator.id },
       data: { verificat: true, codVerificare: null, codVerificareExpira: null },
-      include: { lucrari: true, disponibilitati: true },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     res.json({ utilizator: serializeUserFull(u) });
   } catch (err) {

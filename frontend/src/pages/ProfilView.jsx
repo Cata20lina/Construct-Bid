@@ -3,9 +3,9 @@ import {
   Building2, Mail, ShieldCheck, Briefcase, MapPin, Hash, ChevronRight, Star,
   Phone, Users, Layers, Wrench, Zap, Paintbrush2, CheckCircle2, Pencil,
   Send, TrendingUp, FolderKanban, AlertTriangle, X, Loader2,
-  Plus, Trash2, Calendar, Trophy, Hammer, Search, Coins,
+  Plus, Trash2, Calendar, Trophy, Hammer, Search, Coins, Globe, Award, FileUp, Paperclip,
 } from 'lucide-react';
-import { apiActualizeazaProfil, apiAdaugaLucrare, apiStergeLucrare, apiAdaugaDisponibilitate, apiStergeDisponibilitate, apiContactOferta, apiVerificaCont, apiRetrimiteCodVerificare, apiVerificaCuiProfil } from '../api.js';
+import { apiActualizeazaProfil, apiAdaugaLucrare, apiStergeLucrare, apiAdaugaDisponibilitate, apiStergeDisponibilitate, apiContactOferta, apiVerificaCont, apiRetrimiteCodVerificare, apiVerificaCuiProfil, apiAdaugaRecomandare, apiStergeRecomandare, apiUploadFisiere, apiEvaluariPrimite, SERVER_URL } from '../api.js';
 
 const CATEGORII_SERVICII = [
   { value: 'Structuri',   label: 'Structuri & Betoane',              icon: <Layers size={15} />,      color: '#2F6FED' },
@@ -124,6 +124,8 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
 
       {/* ── Portofoliu de lucrări + disponibilitate — doar SUBCONTRACTOR ── */}
       {esteSubcontractor && <PortofoliuCard t={t} user={user} setUser={setUser} />}
+      {esteSubcontractor && <RecomandariCard t={t} user={user} setUser={setUser} />}
+      {esteSubcontractor && <RatingCard t={t} user={user} />}
       {esteSubcontractor && <DisponibilitateCard t={t} user={user} setUser={setUser} />}
 
       {/* ── Oferte câștigate — date de contact ale beneficiarului ── */}
@@ -351,6 +353,7 @@ function ServiciiProfilCard({ t, user, setUser }) {
     aniExperienta: user?.aniExperienta ?? '',
     nrAngajati: user?.nrAngajati ?? '',
     telefon: user?.telefon || '',
+    siteWeb: user?.siteWeb || '',
     categoriiServicii: user?.categoriiServicii || [],
     judeteServicii: user?.judeteServicii || [],
   });
@@ -389,6 +392,7 @@ function ServiciiProfilCard({ t, user, setUser }) {
       aniExperienta: user?.aniExperienta ?? '',
       nrAngajati: user?.nrAngajati ?? '',
       telefon: user?.telefon || '',
+      siteWeb: user?.siteWeb || '',
       categoriiServicii: user?.categoriiServicii || [],
       judeteServicii: user?.judeteServicii || [],
     });
@@ -477,6 +481,21 @@ function ServiciiProfilCard({ t, user, setUser }) {
               <MiniStat t={t} icon={<Briefcase size={14} />} label="Ani de activitate" valoare={user?.aniExperienta ?? '—'} />
               <MiniStat t={t} icon={<Users size={14} />} label="Număr angajați" valoare={user?.nrAngajati ?? '—'} />
               <MiniStat t={t} icon={<Phone size={14} />} label="Telefon contact" valoare={user?.telefon || '—'} />
+            </div>
+
+            <div>
+              <div style={labelStyle}><Globe size={12} /> Site de prezentare</div>
+              {user?.siteWeb ? (
+                <a
+                  href={/^https?:\/\//i.test(user.siteWeb) ? user.siteWeb : `https://${user.siteWeb}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '14px', color: '#2F6FED', fontWeight: '600', textDecoration: 'none' }}
+                >
+                  {user.siteWeb}
+                </a>
+              ) : (
+                <EmptyHint t={t} text="Adaugă linkul către website-ul firmei tale, dacă ai unul." />
+              )}
             </div>
 
             <div>
@@ -574,6 +593,16 @@ function ServiciiProfilCard({ t, user, setUser }) {
             </div>
 
             <div>
+              <label style={labelStyle}><Globe size={12} /> Site de prezentare</label>
+              <input type="text" placeholder="ex: www.firma-mea.ro"
+                value={form.siteWeb}
+                onChange={e => setForm({ ...form, siteWeb: e.target.value })}
+                onFocus={() => setFocusat('site')} onBlur={() => setFocusat(null)}
+                style={inputStyle('site')}
+              />
+            </div>
+
+            <div>
               <label style={labelStyle}><Star size={12} /> Ce vă diferențiază</label>
               <textarea rows={4}
                 placeholder="Descrie echipa, utilajele deținute, certificările, proiectele reprezentative..."
@@ -628,7 +657,7 @@ function EmptyHint({ t, text }) {
 
 // ─────────────────────────────────────────────────────────────────────────
 // Card "Portofoliu" — lucrări realizate de subcontractor. Public, vizibil
-// dezvoltatorilor pe cotația trimisă (OfertaDetailView), ajută la evaluare.
+// dezvoltatorilor pe oferta trimisă (OfertaDetailView), ajută la evaluare.
 // ─────────────────────────────────────────────────────────────────────────
 function PortofoliuCard({ t, user, setUser }) {
   const [formDeschis, setFormDeschis] = useState(false);
@@ -728,6 +757,215 @@ function PortofoliuCard({ t, user, setUser }) {
                 <button onClick={() => sterge(l._id)} disabled={stergandId === l._id} style={{ background: 'none', border: 'none', color: t.textSecundar, cursor: 'pointer', flexShrink: 0, padding: '4px' }}>
                   {stergandId === l._id ? <Loader2 size={14} className="spin-icon" /> : <Trash2 size={14} />}
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Card "Recomandări / Referințe" — contracte încheiate în afara platformei,
+// demonstrate cu document justificativ + valoare, pentru credibilitate.
+// ─────────────────────────────────────────────────────────────────────────
+function RecomandariCard({ t, user, setUser }) {
+  const [formDeschis, setFormDeschis] = useState(false);
+  const [form, setForm] = useState({ categorie: 'Structuri', valoareContract: '', descriere: '' });
+  const [fisier, setFisier] = useState(null);
+  const [salvand, setSalvand] = useState(false);
+  const [eroare, setEroare] = useState('');
+  const [stergandId, setStergandId] = useState(null);
+
+  const recomandari = user?.recomandari || [];
+
+  const inputStyle = {
+    width: '100%', padding: '10px 13px', borderRadius: '9px',
+    backgroundColor: t.bgInput, border: `1.5px solid ${t.border}`,
+    color: t.textPrincipal, fontSize: '13.5px', boxSizing: 'border-box',
+    outline: 'none', fontFamily: 'inherit',
+  };
+
+  const adauga = async (e) => {
+    e.preventDefault();
+    setEroare('');
+    setSalvand(true);
+    try {
+      let documentUrl = '';
+      let documentNume = '';
+      if (fisier) {
+        const { fisiere } = await apiUploadFisiere([fisier]);
+        if (fisiere && fisiere[0]) {
+          documentUrl = fisiere[0].numeFisier;
+          documentNume = fisiere[0].nume;
+        }
+      }
+      const { utilizator } = await apiAdaugaRecomandare({ ...form, documentUrl, documentNume });
+      setUser(prev => ({ ...prev, ...utilizator }));
+      setForm({ categorie: 'Structuri', valoareContract: '', descriere: '' });
+      setFisier(null);
+      setFormDeschis(false);
+    } catch (err) {
+      setEroare(err.message || 'Nu am putut salva recomandarea.');
+    } finally {
+      setSalvand(false);
+    }
+  };
+
+  const sterge = async (id) => {
+    setStergandId(id);
+    try {
+      const { utilizator } = await apiStergeRecomandare(id);
+      setUser(prev => ({ ...prev, ...utilizator }));
+    } catch (err) {
+      console.error('Eroare ștergere recomandare:', err);
+    } finally {
+      setStergandId(null);
+    }
+  };
+
+  return (
+    <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar }}>
+          <Award size={13} /> Recomandări — Contracte Încheiate
+        </span>
+        {!formDeschis && (
+          <button onClick={() => setFormDeschis(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: `1px solid ${t.border}`, color: t.accent || '#2F6FED', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+            <Plus size={12} /> Adaugă recomandare
+          </button>
+        )}
+      </div>
+
+      <div style={{ padding: '20px 24px' }}>
+        {formDeschis && (
+          <form onSubmit={adauga} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: recomandari.length ? '18px' : 0, padding: '16px', borderRadius: '12px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: '10px' }}>
+              <select value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} style={inputStyle}>
+                {CATEGORII_SERVICII.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <input type="number" min="0" placeholder="Valoare contract (RON)" value={form.valoareContract} onChange={e => setForm({ ...form, valoareContract: e.target.value })} style={inputStyle} />
+            </div>
+            <input placeholder="Descriere scurtă (opțional)" value={form.descriere} onChange={e => setForm({ ...form, descriere: e.target.value })} style={inputStyle} />
+            <label style={{ ...inputStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: fisier ? t.textPrincipal : t.textSecundar }}>
+              <FileUp size={15} />
+              {fisier ? fisier.name : 'Încarcă document justificativ (contract, PV recepție etc.)'}
+              <input type="file" onChange={e => setFisier(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+            </label>
+            {eroare && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontSize: '12.5px', fontWeight: '600' }}><AlertTriangle size={13} /> {eroare}</div>}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="submit" disabled={salvand} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#2F6FED', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 16px', fontSize: '12.5px', fontWeight: '700', cursor: salvand ? 'default' : 'pointer', opacity: salvand ? 0.7 : 1 }}>
+                {salvand ? <Loader2 size={13} className="spin-icon" /> : <CheckCircle2 size={13} />} Salvează
+              </button>
+              <button type="button" onClick={() => { setFormDeschis(false); setEroare(''); }} style={{ backgroundColor: 'transparent', border: `1px solid ${t.border}`, color: t.textSecundar, borderRadius: '8px', padding: '9px 14px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer' }}>
+                Anulează
+              </button>
+            </div>
+          </form>
+        )}
+
+        {recomandari.length === 0 ? (
+          <EmptyHint t={t} text="Adaugă contracte finalizate cu succes, demonstrate cu document, ca să crești credibilitatea profilului tău." />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {recomandari.map(r => {
+              const cat = CATEGORII_SERVICII.find(c => c.value === r.categorie);
+              return (
+                <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', padding: '13px 16px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: '700', padding: '4px 9px', borderRadius: '20px', backgroundColor: cat ? `${cat.color}15` : t.bgCard, color: cat ? cat.color : t.textSecundar }}>
+                        {cat?.icon} {cat?.label || r.categorie}
+                      </span>
+                      {r.valoareContract != null && (
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#10b981' }}>{Number(r.valoareContract).toLocaleString()} RON</span>
+                      )}
+                    </div>
+                    {r.descriere && <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: t.textSecundar, lineHeight: 1.5 }}>{r.descriere}</p>}
+                    {r.documentUrl && (
+                      <a href={`${SERVER_URL}/uploads/${r.documentUrl}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '6px', fontSize: '12px', color: '#2F6FED', fontWeight: '600', textDecoration: 'none' }}>
+                        <Paperclip size={12} /> {r.documentNume || 'Document'}
+                      </a>
+                    )}
+                  </div>
+                  <button onClick={() => sterge(r._id)} disabled={stergandId === r._id} style={{ background: 'none', border: 'none', color: t.textSecundar, cursor: 'pointer', flexShrink: 0, padding: '4px' }}>
+                    {stergandId === r._id ? <Loader2 size={14} className="spin-icon" /> : <Trash2 size={14} />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Card "Rating firmă" — media evaluărilor primite de la dezvoltatori, după
+// contracte încheiate pe platformă (1 evaluare per ofertă câștigată).
+// ─────────────────────────────────────────────────────────────────────────
+function RatingCard({ t, user }) {
+  const [evaluari, setEvaluari] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [eroare, setEroare] = useState('');
+
+  useEffect(() => {
+    let activ = true;
+    apiEvaluariPrimite()
+      .then(data => { if (activ) setEvaluari(data.evaluari || []); })
+      .catch(err => { if (activ) setEroare(err.message || 'Nu am putut încărca evaluările.'); })
+      .finally(() => { if (activ) setLoading(false); });
+    return () => { activ = false; };
+  }, []);
+
+  const medie = user?.ratingMediu || 0;
+  const numar = user?.ratingNumarEvaluari || 0;
+
+  return (
+    <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Star size={13} /> Rating Firmă
+      </div>
+      <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '38px', fontWeight: '900', color: t.textPrincipal, lineHeight: 1 }}>
+            {numar > 0 ? medie.toFixed(1) : '—'}
+          </div>
+          <div>
+            <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <Star key={n} size={18} fill={n <= Math.round(medie) ? '#f59e0b' : 'none'} color="#f59e0b" />
+              ))}
+            </div>
+            <div style={{ fontSize: '12.5px', color: t.textSecundar }}>
+              {numar > 0 ? `Pe baza a ${numar} evaluăr${numar === 1 ? 'e' : 'i'} de la dezvoltatori` : 'Fără evaluări momentan'}
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: t.textSecundar, fontSize: '13px' }}>
+            <Loader2 size={14} className="spin-icon" /> Se încarcă evaluările...
+          </div>
+        ) : eroare ? (
+          <div style={{ color: '#ef4444', fontSize: '12.5px', fontWeight: '600' }}>{eroare}</div>
+        ) : evaluari.length === 0 ? (
+          <EmptyHint t={t} text="Evaluările apar aici automat, după ce un dezvoltator notează colaborarea la finalul unui contract câștigat pe platformă." />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {evaluari.slice(0, 6).map(e => (
+              <div key={e._id} style={{ padding: '13px 16px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: e.comentariu ? '6px' : 0 }}>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <Star key={n} size={13} fill={n <= e.scor ? '#f59e0b' : 'none'} color="#f59e0b" />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '11.5px', color: t.textSecundar, whiteSpace: 'nowrap' }}>{e.proiectTitlu}</span>
+                </div>
+                {e.comentariu && <p style={{ margin: 0, fontSize: '12.5px', color: t.textPrincipal, lineHeight: 1.5, fontStyle: 'italic' }}>"{e.comentariu}"</p>}
               </div>
             ))}
           </div>

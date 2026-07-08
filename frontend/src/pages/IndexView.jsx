@@ -5,9 +5,9 @@ import {
   Paintbrush2, Coins, Hash, Radar, ChevronRight, CheckCircle2,
 } from 'lucide-react';
 
-// ─── Etichetă de secțiune stil "cotă de desen tehnic" (dimension line) ─────
+// ─── Etichetă de secțiune stil "Ofertă de desen tehnic" (dimension line) ─────
 // Semnătura vizuală a paginii: liniile scurte cu bare perpendiculare la
-// capete imită cotele dintr-un plan de șantier/blueprint — ancorate în
+// capete imită ofertele dintr-un plan de șantier/blueprint — ancorate în
 // vocabularul vizual al construcțiilor, nu decor generic.
 function EtichetaSectiune({ t, children }) {
   return (
@@ -82,7 +82,7 @@ export default function IndexView({ t, setActiveTab, user }) {
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px 100px' }}>
 
-      {/* ── Stiluri locale: cotă tehnică, corner marks, hover-uri, animație de intrare ── */}
+      {/* ── Stiluri locale: Ofertă tehnică, corner marks, hover-uri, animație de intrare ── */}
       <style>{`
         .cb-idx-dim { position: relative; display: inline-block; height: 1px; background: var(--cb-line); }
         .cb-idx-dim::before, .cb-idx-dim::after {
@@ -346,16 +346,6 @@ export default function IndexView({ t, setActiveTab, user }) {
         <p style={{ fontSize: '12.5px', color: t.textSecundar, margin: '18px 0 0' }}>
           Soldul tău actual de token-uri: <b style={{ color: t.textPrincipal, fontFamily: t.fontMono }}>{user?.tokenuri ?? 0}</b>
         </p>
-        <button
-          onClick={() => setActiveTab && setActiveTab('abonament')}
-          style={{
-            marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '10px 18px', borderRadius: '8px', border: 'none',
-            backgroundColor: t.accent, color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
-          }}
-        >
-          <Coins size={15} /> Vezi abonamente și cumpără tokenuri
-        </button>
       </div>
 
       {/* ── CTA final ── */}
@@ -386,7 +376,7 @@ export default function IndexView({ t, setActiveTab, user }) {
               padding: '13px 26px', fontSize: '14.5px', fontWeight: '700', cursor: 'pointer',
             }}
           >
-            {esteSubcontractor ? 'Vezi Șantierele Active' : 'Publică un Anunț'} <ArrowRight size={16} />
+            {esteSubcontractor ? 'Vezi Anunțuri Active' : 'Publică un Anunț'} <ArrowRight size={16} />
           </button>
         </div>
       </div>

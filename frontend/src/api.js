@@ -240,6 +240,41 @@ export async function apiStergeDisponibilitate(id) {
   return handleResponse(res);
 }
 
+// ─── RECOMANDĂRI / REFERINȚE (subcontractor) ─────────────────────────────────
+export async function apiAdaugaRecomandare(payload) {
+  const res = await fetch(`${API_URL}/auth/recomandari`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiStergeRecomandare(id) {
+  const res = await fetch(`${API_URL}/auth/recomandari/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── RATING / EVALUĂRI ────────────────────────────────────────────────────────
+export async function apiEvaluariPrimite() {
+  const res = await fetch(`${API_URL}/auth/evaluari-primite`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiLasaEvaluare(ofertaId, payload) {
+  const res = await fetch(`${API_URL}/oferte/${ofertaId}/evaluare`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiEvaluareOferta(ofertaId) {
+  const res = await fetch(`${API_URL}/oferte/${ofertaId}/evaluare`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
 // ─── UTILITARE (curs valutar, vreme șantier) ─────────────────────────────────
 // ─── NOTIFICARI ─────────────────────────────────────────────────────────────
 export async function apiNotificari() {

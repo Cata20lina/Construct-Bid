@@ -13,6 +13,33 @@ function serializeDisponibilitate(d) {
   return { _id: d.id, start: d.start, end: d.end, nota: d.nota };
 }
 
+function serializeRecomandare(r) {
+  if (!r) return r;
+  return {
+    _id: r.id,
+    categorie: r.categorie,
+    valoareContract: r.valoareContract,
+    documentUrl: r.documentUrl || '',
+    documentNume: r.documentNume || '',
+    descriere: r.descriere || '',
+    createdAt: r.createdAt,
+  };
+}
+
+function serializeEvaluare(e) {
+  if (!e) return e;
+  return {
+    _id: e.id,
+    scor: e.scor,
+    comentariu: e.comentariu || '',
+    proiectTitlu: e.proiectTitlu || '',
+    evaluatorNume: e.evaluatorNume || '',
+    ofertaId: e.ofertaId,
+    proiectId: e.proiectId || undefined,
+    createdAt: e.createdAt,
+  };
+}
+
 // Profilul complet al propriului utilizator (register/login/me/profil)
 function serializeUserFull(u) {
   if (!u) return u;
@@ -32,10 +59,14 @@ function serializeUserFull(u) {
     judeteServicii: u.judeteServicii || [],
     lucrari: (u.lucrari || []).map(serializeLucrare),
     disponibilitate: (u.disponibilitati || []).map(serializeDisponibilitate),
+    recomandari: (u.recomandari || []).map(serializeRecomandare),
     cuiVerificat: u.cuiVerificat || false,
     cuiDenumireOficiala: u.cuiDenumireOficiala || '',
     tokenuri: typeof u.tokenuri === 'number' ? u.tokenuri : 0,
     planAbonament: u.planAbonament || 'GRATUIT',
+    siteWeb: u.siteWeb || '',
+    ratingMediu: typeof u.ratingMediu === 'number' ? u.ratingMediu : 0,
+    ratingNumarEvaluari: typeof u.ratingNumarEvaluari === 'number' ? u.ratingNumarEvaluari : 0,
   };
 }
 
@@ -52,8 +83,12 @@ function serializeUserPublic(u) {
     categoriiServicii: u.categoriiServicii || [],
     judeteServicii: u.judeteServicii || [],
     descriere: u.descriere || '',
+    siteWeb: u.siteWeb || '',
+    ratingMediu: typeof u.ratingMediu === 'number' ? u.ratingMediu : 0,
+    ratingNumarEvaluari: typeof u.ratingNumarEvaluari === 'number' ? u.ratingNumarEvaluari : 0,
     lucrari: u.lucrari ? u.lucrari.map(serializeLucrare) : [],
     disponibilitate: u.disponibilitati ? u.disponibilitati.map(serializeDisponibilitate) : [],
+    recomandari: u.recomandari ? u.recomandari.map(serializeRecomandare) : [],
     verificat: u.verificat,
   };
 }
@@ -160,6 +195,8 @@ function serializeNotificare(n) {
 module.exports = {
   serializeLucrare,
   serializeDisponibilitate,
+  serializeRecomandare,
+  serializeEvaluare,
   serializeUserFull,
   serializeUserPublic,
   serializeUserMini,

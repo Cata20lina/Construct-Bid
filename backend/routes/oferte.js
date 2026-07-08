@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 const { protejat, doarRol } = require('../middleware/auth');
-const { serializeOferta, serializeProject, serializeUserContact } = require('../lib/serialize');
+const { serializeOferta, serializeProject, serializeUserContact, serializeEvaluare } = require('../lib/serialize');
 const { notificaOfertaNoua, notificaOfertaDepasita, notificaOfertaStaticaAcceptata, notificaOfertaStaticaRespinsa } = require('../lib/mailer');
 const { creeazaNotificare } = require('../lib/notificari');
 const { genereazaContractPdf } = require('../lib/pdf');
+const { recalculeazaRating } = require('../lib/rating');
 
 const SUBCONTRACTOR_INCLUDE = { lucrari: true, disponibilitati: true };
 
@@ -376,6 +377,79 @@ router.get('/:id/contract-pdf', protejat, async (req, res) => {
   } catch (err) {
     console.error('[oferte GET /:id/contract-pdf]', err);
     res.status(500).json({ mesaj: 'Eroare la generarea PDF-ului.' });
+  }
+});
+
+// ─── POST /api/oferte/:id/evaluare ──────────────────────────────────────────
+// Dezvoltatorul proiectului lasă o evaluare (1-5 stele + comentariu opțional)
+// subcontractorului, DUPĂ ce oferta a fost acceptată/câștigătoare. O singură
+// evaluare per ofertă.
+router.post('/:id/evaluare', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
+  try {
+    const { scor, comentariu } = req.body;
+    const scorNum = Number(scor);
+    if (!Number.isInteger(scorNum) || scorNum < 1 || scorNum > 5) {
+      return res.status(400).json({ mesaj: 'Scorul trebuie să fie un număr întreg între 1 și 5.' });
+    }
+
+    const oferta = await prisma.oferta.findUnique({ where: { id: req.params.id }, include: { proiect: true } });
+    if (!oferta) return res.status(404).json({ mesaj: 'Oferta nu exista.' });
+    if (oferta.proiect.dezvoltatorId !== req.utilizator.id) {
+      return res.status(403).json({ mesaj: 'Nu ai permisiunea sa evaluezi aceasta oferta.' });
+    }
+    const aCastigat = oferta.status === 'acceptata' || oferta.status === 'castigatoare';
+    if (!aCastigat) {
+      return res.status(400).json({ mesaj: 'Poți evalua doar ofertele acceptate/câștigătoare.' });
+    }
+
+    const existenta = await prisma.evaluare.findUnique({ where: { ofertaId: oferta.id } });
+    if (existenta) {
+      return res.status(409).json({ mesaj: 'Ai evaluat deja această ofertă.' });
+    }
+
+    const evaluare = await prisma.$transaction(async (tx) => {
+      const noua = await tx.evaluare.create({
+        data: {
+          scor: scorNum,
+          comentariu: (comentariu || '').trim().slice(0, 500),
+          proiectTitlu: oferta.proiect.titlu,
+          evaluatorNume: req.utilizator.nume,
+          ofertaId: oferta.id,
+          proiectId: oferta.proiectId,
+          evaluatorId: req.utilizator.id,
+          evaluatId: oferta.subcontractorId,
+        },
+      });
+      await recalculeazaRating(tx, oferta.subcontractorId);
+      return noua;
+    });
+
+    creeazaNotificare({
+      userId: oferta.subcontractorId,
+      tip: 'alerta',
+      titlu: `Ai primit o evaluare de ${scorNum}★ pentru "${oferta.proiect.titlu}"`,
+      mesaj: comentariu ? comentariu.slice(0, 140) : 'Vezi evaluarea în profilul tău.',
+      proiectId: oferta.proiectId,
+      ofertaId: oferta.id,
+    });
+
+    res.status(201).json(serializeEvaluare(evaluare));
+  } catch (err) {
+    console.error('[oferte POST /:id/evaluare]', err);
+    res.status(500).json({ mesaj: 'Eroare la salvarea evaluării.' });
+  }
+});
+
+// ─── GET /api/oferte/:id/evaluare ───────────────────────────────────────────
+// Verifică dacă o ofertă a fost deja evaluată (folosit ca să nu arătăm din nou
+// formularul de evaluare dezvoltatorului care a evaluat deja).
+router.get('/:id/evaluare', protejat, async (req, res) => {
+  try {
+    const evaluare = await prisma.evaluare.findUnique({ where: { ofertaId: req.params.id } });
+    res.json({ evaluare: evaluare ? serializeEvaluare(evaluare) : null });
+  } catch (err) {
+    console.error('[oferte GET /:id/evaluare]', err);
+    res.status(500).json({ mesaj: 'Eroare la verificarea evaluării.' });
   }
 });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard } from 'lucide-react';
+import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard, Send } from 'lucide-react';
 
 export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTema, onToggleTema, t, esteSubcontractor, nrNotificariNecitite }) {
   const allMenuItems = [
@@ -7,7 +7,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
     { id: 'santiere', text: 'Proiecte Disponibile', icon: <HardHat size={16} />, always: true },
     { id: 'prospectare', text: 'Prospectare Piață', icon: <LineChart size={16} />, always: true },
     { id: 'adauga_anunt', text: 'Adaugă Anunț', icon: <PlusCircle size={16} />, onlyDezvolator: true },
-    { id: 'abonament', text: 'Abonament', icon: <CreditCard size={16} />, always: true },
+    { id: 'ofertele_tale', text: 'Ofertele Tale', icon: <Send size={16} />, onlySubcontractor: true },
   ];
 
   const menuItems = allMenuItems.filter(item => {
@@ -68,6 +68,20 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
           {/* Toggle temă */}
           <button onClick={onToggleTema} style={{ background: 'none', border: 'none', color: t.textSecundar, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '8px', backgroundColor: modTema === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', transition: 'all 0.2s' }} title={modTema === 'dark' ? 'Mod Luminos' : 'Mod Întunecat'}>
             {modTema === 'dark' ? <Sun size={18} style={{ color: t.amber }} /> : <Moon size={18} style={{ color: '#475569' }} />}
+          </button>
+
+          {/* Abonament & tokenuri */}
+          <button
+            onClick={() => setActiveTab('abonament')}
+            title="Abonament & tokenuri"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              padding: '8px', borderRadius: '8px', transition: 'all 0.2s',
+              color: activeTab === 'abonament' ? t.accent : t.textSecundar,
+              backgroundColor: activeTab === 'abonament' ? t.accentSoft : 'transparent',
+            }}
+          >
+            <CreditCard size={18} />
           </button>
 
           {/* Sold token-uri (relevant pentru dezvoltatori, care le consumă la publicare) */}

@@ -63,6 +63,13 @@ model User {
   categoriiServicii String[] @default([])
   judeteServicii    String[] @default([])
 
+  // ── Site de prezentare (link extern către website-ul firmei) ──
+  siteWeb String @default("")
+
+  // ── Rating agregat, recalculat la fiecare evaluare primită ──
+  ratingMediu         Float @default(0)
+  ratingNumarEvaluari Int   @default(0)
+
   cuiVerificat        Boolean   @default(false)
   cuiDenumireOficiala String    @default("")
   cuiVerificatLa      DateTime?
@@ -76,6 +83,9 @@ model User {
 
   lucrari         Lucrare[]
   disponibilitati Disponibilitate[]
+  recomandari     Recomandare[]
+  evaluariPrimite Evaluare[]        @relation("EvaluatUser")
+  evaluariDate    Evaluare[]        @relation("EvaluatorUser")
 
   proiecte          Project[] @relation("DezvoltatorProiecte")
   proiecteCastigate Project[] @relation("CastigatorProiecte")
@@ -240,4 +250,47 @@ model TranzactieToken {
 
   @@index([userId, createdAt])
   @@map("tranzactii_tokenuri")
+}
+
+// ── Recomandări / referințe — contracte încheiate demonstrate cu document
+//    justificativ, afișate pe profilul subcontractorului pentru credibilitate ──
+model Recomandare {
+  id              String   @id @default(cuid())
+  categorie       String
+  valoareContract Float?
+  documentUrl     String   @default("")
+  documentNume    String   @default("")
+  descriere       String   @default("")
+  createdAt       DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, createdAt])
+  @@map("recomandari")
+}
+
+// ── Evaluare (rating) lăsată de un dezvoltator unui subcontractor, după ce
+//    o ofertă a acestuia a fost acceptată/câștigătoare pe un proiect al său.
+//    O singură evaluare per ofertă (ofertaId e unic). ──
+model Evaluare {
+  id            String   @id @default(cuid())
+  scor          Int
+  comentariu    String   @default("")
+  proiectTitlu  String   @default("")
+  evaluatorNume String   @default("")
+
+  ofertaId  String @unique
+  proiectId String @default("")
+
+  evaluator   User?  @relation("EvaluatorUser", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  evaluatorId String?
+
+  evaluat   User   @relation("EvaluatUser", fields: [evaluatId], references: [id], onDelete: Cascade)
+  evaluatId String
+
+  createdAt DateTime @default(now())
+
+  @@index([evaluatId, createdAt])
+  @@map("evaluari")
 }

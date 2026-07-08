@@ -4,9 +4,9 @@ import {
   Building2, Banknote, Clock, FileText, MapPin,
   Layers, Wrench, Zap, Paintbrush2,
   Phone, Mail, Hash, MapPinned, Paperclip,
-  Briefcase, Users, Star, Calendar, Loader2, ShieldCheck, Download,
+  Briefcase, Users, Star, Calendar, Loader2, ShieldCheck, Download, Send, MessageSquarePlus,
 } from 'lucide-react';
-import { SERVER_URL, apiContactOferta, apiDescarcaContractPdf } from '../api.js';
+import { SERVER_URL, apiContactOferta, apiDescarcaContractPdf, apiEvaluareOferta, apiLasaEvaluare } from '../api.js';
 
 const CATEGORIE_CONFIG = {
   'Structuri':  { icon: <Layers size={14} />,      color: '#2F6FED', bg: 'rgba(47,111,237,0.12)'  },
@@ -20,6 +20,7 @@ export default function OfertaDetailView({
   proiect,
   indexOferta,
   t,
+  user,
   onBack,
   onAccepta,
   onRefuza,
@@ -31,8 +32,23 @@ export default function OfertaDetailView({
   const [pdfSeDescarca, setPdfSeDescarca] = useState(false);
   const [pdfEroare, setPdfEroare] = useState('');
 
+  const [evaluare, setEvaluare] = useState(null);
+  const [evaluareLoading, setEvaluareLoading] = useState(false);
+
   const statusCurent = oferta?.status || 'in_asteptare';
   const aCastigat = statusCurent === 'acceptata' || statusCurent === 'castigatoare';
+  const esteDezvoltator = user?.rol === 'DEZVOLTATOR';
+
+  useEffect(() => {
+    if (!oferta?._id || !aCastigat || !esteDezvoltator) { setEvaluare(null); return; }
+    let activ = true;
+    setEvaluareLoading(true);
+    apiEvaluareOferta(oferta._id)
+      .then(data => { if (activ) setEvaluare(data.evaluare); })
+      .catch(() => {})
+      .finally(() => { if (activ) setEvaluareLoading(false); });
+    return () => { activ = false; };
+  }, [oferta?._id, aCastigat, esteDezvoltator]);
 
   useEffect(() => {
     if (!oferta?._id || !aCastigat) { setContact(null); return; }
@@ -115,7 +131,7 @@ export default function OfertaDetailView({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: t.textSecundar, marginBottom: '6px' }}>
-                Cotație de la
+                Ofertă de la
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'rgba(47,111,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -155,7 +171,25 @@ export default function OfertaDetailView({
             <MiniStat t={t} icon={<Briefcase size={14} />} label="Ani experiență" valoare={subcontractor.aniExperienta ?? '—'} />
             <MiniStat t={t} icon={<Users size={14} />} label="Angajați" valoare={subcontractor.nrAngajati ?? '—'} />
             <MiniStat t={t} icon={<MapPin size={14} />} label="Județ" valoare={subcontractor.judet || '—'} />
+            <MiniStat
+              t={t}
+              icon={<Star size={14} />}
+              label="Rating"
+              valoare={subcontractor.ratingNumarEvaluari > 0
+                ? `${subcontractor.ratingMediu.toFixed(1)} ★ (${subcontractor.ratingNumarEvaluari})`
+                : 'Fără evaluări'}
+            />
           </div>
+
+          {subcontractor.siteWeb && (
+            <a
+              href={/^https?:\/\//i.test(subcontractor.siteWeb) ? subcontractor.siteWeb : `https://${subcontractor.siteWeb}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '13px', color: '#2F6FED', textDecoration: 'none', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              🌐 {subcontractor.siteWeb}
+            </a>
+          )}
 
           {subcontractor.descriere && (
             <p style={{ color: t.textPrincipal, fontSize: '14px', lineHeight: 1.7, margin: 0, fontStyle: 'italic' }}>
@@ -245,7 +279,7 @@ export default function OfertaDetailView({
       )}
 
       {/* ── ACȚIUNI DEZVOLTATOR ── */}
-      {!esteFinalizata && (
+      {!esteFinalizata && esteDezvoltator && (
         <div style={{
           backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`,
           padding: '20px 24px', boxShadow: `0 2px 12px ${t.shadow}`,
@@ -281,7 +315,7 @@ export default function OfertaDetailView({
                   boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
                 }}
               >
-                <CheckCircle2 size={16} /> Acceptă Cotația
+                <CheckCircle2 size={16} /> Acceptă Oferta
               </button>
 
               <button
@@ -314,7 +348,7 @@ export default function OfertaDetailView({
           color: '#ef4444',
           fontWeight: '700', fontSize: '14px',
         }}>
-          <XCircle size={18} /> {statusCurent === 'depasita' ? 'Această ofertă a fost depășită de o ofertă mai mică.' : 'Această cotație a fost respinsă.'}
+          <XCircle size={18} /> {statusCurent === 'depasita' ? 'Această ofertă a fost depășită de o ofertă mai mică.' : 'Această ofertă a fost respinsă.'}
         </div>
       )}
 
@@ -332,7 +366,7 @@ export default function OfertaDetailView({
             letterSpacing: '1px', color: '#10b981',
             display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <ShieldCheck size={13} /> Cotație câștigătoare — Date de Contact Subcontractor
+            <ShieldCheck size={13} /> Ofertă câștigătoare — Date de Contact Subcontractor
           </div>
 
           <div style={{ padding: '24px' }}>
@@ -380,6 +414,108 @@ export default function OfertaDetailView({
         </div>
       )}
 
+      {/* ── EVALUARE — dezvoltatorul lasă un rating subcontractorului câștigător ── */}
+      {aCastigat && esteDezvoltator && (
+        <EvaluareCard
+          t={t}
+          ofertaId={oferta._id}
+          evaluare={evaluare}
+          evaluareLoading={evaluareLoading}
+          onEvaluareTrimisa={(noua) => setEvaluare(noua)}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Card evaluare — permite dezvoltatorului să lase 1-5 stele + comentariu
+// subcontractorului câștigător, o singură dată per ofertă.
+// ─────────────────────────────────────────────────────────────────────────
+function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimisa }) {
+  const [scor, setScor] = useState(0);
+  const [scorHover, setScorHover] = useState(0);
+  const [comentariu, setComentariu] = useState('');
+  const [seTrimite, setSeTrimite] = useState(false);
+  const [eroare, setEroare] = useState('');
+
+  const trimite = async () => {
+    if (scor < 1) { setEroare('Alege un scor de la 1 la 5 stele.'); return; }
+    setSeTrimite(true);
+    setEroare('');
+    try {
+      const noua = await apiLasaEvaluare(ofertaId, { scor, comentariu: comentariu.trim() });
+      onEvaluareTrimisa(noua);
+    } catch (err) {
+      setEroare(err.message || 'Nu am putut salva evaluarea.');
+    } finally {
+      setSeTrimite(false);
+    }
+  };
+
+  return (
+    <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
+      <div style={{ padding: '14px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <MessageSquarePlus size={13} /> Evaluează subcontractorul
+      </div>
+      <div style={{ padding: '24px' }}>
+        {evaluareLoading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: t.textSecundar, fontSize: '13px' }}>
+            <Loader2 size={15} className="spin-icon" /> Se încarcă...
+          </div>
+        ) : evaluare ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <Star key={n} size={20} fill={n <= evaluare.scor ? '#f59e0b' : 'none'} color="#f59e0b" />
+              ))}
+            </div>
+            {evaluare.comentariu && <p style={{ margin: 0, fontSize: '13.5px', color: t.textPrincipal, lineHeight: 1.6, fontStyle: 'italic' }}>"{evaluare.comentariu}"</p>}
+            <span style={{ fontSize: '12px', color: t.textSecundar }}>Ai lăsat deja o evaluare pentru această colaborare — mulțumim!</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p style={{ margin: 0, fontSize: '13.5px', color: t.textSecundar }}>
+              Cum a fost colaborarea cu acest subcontractor? Evaluarea ta contribuie la ratingul lui public de pe platformă.
+            </p>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n} type="button"
+                  onClick={() => setScor(n)}
+                  onMouseEnter={() => setScorHover(n)}
+                  onMouseLeave={() => setScorHover(0)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
+                >
+                  <Star size={26} fill={n <= (scorHover || scor) ? '#f59e0b' : 'none'} color="#f59e0b" />
+                </button>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              placeholder="Comentariu opțional — cum a decurs execuția, respectarea termenelor, calitatea lucrării..."
+              value={comentariu}
+              onChange={e => setComentariu(e.target.value)}
+              style={{ width: '100%', padding: '11px 14px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1.5px solid ${t.border}`, color: t.textPrincipal, fontSize: '13.5px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }}
+            />
+            {eroare && <div style={{ color: '#ef4444', fontSize: '12.5px', fontWeight: '600' }}>{eroare}</div>}
+            <button
+              onClick={trimite}
+              disabled={seTrimite}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', alignSelf: 'flex-start',
+                background: 'linear-gradient(135deg, #2F6FED, #4f46e5)', color: '#fff', border: 'none',
+                borderRadius: '10px', padding: '11px 20px', fontSize: '13px', fontWeight: '700',
+                cursor: seTrimite ? 'default' : 'pointer', opacity: seTrimite ? 0.75 : 1,
+              }}
+            >
+              {seTrimite ? <Loader2 size={14} className="spin-icon" /> : <Send size={14} />}
+              {seTrimite ? 'Se trimite...' : 'Trimite evaluarea'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import ProspectarePiataView from './pages/ProspectarePiataView.jsx';
 import OfertaDetailView from './pages/OfertaDetailView.jsx';
 import ProfilView from './pages/ProfilView.jsx';
 import AbonamentView from './pages/AbonamentView.jsx';
+import OfertelemTaleView from './pages/OfertelemTaleView.jsx';
 
 import {
   getToken, setToken, apiMe, apiListaProiecte, apiCreazaProiect,
@@ -387,6 +388,7 @@ export default function App() {
               indexOferta={ofertaSelectata.indexOferta}
               proiect={ofertaSelectata.proiect}
               t={t}
+              user={user}
               onBack={() => setOfertaSelectata(null)}
               onAccepta={acceptaOferta}
               onRefuza={refuzaOferta}
@@ -465,6 +467,27 @@ export default function App() {
             error={errorAnunt}
             success={successAnunt}
           />
+        )}
+
+        {activeTab === 'ofertele_tale' && (
+          ofertaSelectata ? (
+            <OfertaDetailView
+              oferta={ofertaSelectata.oferta}
+              indexOferta={ofertaSelectata.indexOferta}
+              proiect={ofertaSelectata.proiect}
+              t={t}
+              user={user}
+              onBack={() => setOfertaSelectata(null)}
+              onAccepta={acceptaOferta}
+              onRefuza={refuzaOferta}
+            />
+          ) : (
+            <OfertelemTaleView
+              t={t}
+              oferteleMele={oferteleMele}
+              onSelectOferta={(oferta) => setOfertaSelectata({ oferta, indexOferta: 0, proiect: oferta.proiect })}
+            />
+          )
         )}
 
         {activeTab === 'abonament' && (

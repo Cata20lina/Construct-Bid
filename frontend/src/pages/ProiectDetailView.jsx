@@ -574,7 +574,7 @@ export default function ProiectDetailView({
                 letterSpacing: '1px', color: '#2F6FED',
                 display: 'flex', alignItems: 'center', gap: '8px',
               }}>
-                <Send size={13} /> Depune Cotație
+                <Send size={13} /> Depune Ofertă
               </div>
 
               <div style={{ padding: '22px 24px' }}>
@@ -583,9 +583,9 @@ export default function ProiectDetailView({
                     <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <CheckCircle2 size={28} color="#10b981" />
                     </div>
-                    <div style={{ fontWeight: '800', fontSize: '16px', color: t.textPrincipal }}>Cotație trimisă!</div>
+                    <div style={{ fontWeight: '800', fontSize: '16px', color: t.textPrincipal }}>Ofertă trimisă!</div>
                     <div style={{ fontSize: '13px', color: t.textSecundar, lineHeight: 1.5 }}>
-                      Dezvoltatorul va analiza cotația ta. Dacă vei fi ales câștigător, vei primi automat datele lui de contact.
+                      Dezvoltatorul va analiza oferta ta. Dacă vei fi ales câștigător, vei primi automat datele lui de contact.
                     </div>
                   </div>
                 ) : (
@@ -708,10 +708,10 @@ export default function ProiectDetailView({
                         boxShadow: loadingOferta ? 'none' : '0 4px 16px rgba(47,111,237,0.3)',
                       }}
                     >
-                      {loadingOferta ? 'Se trimite...' : <><Send size={15} /> Trimite Cotația <ChevronRight size={15} /></>}
+                      {loadingOferta ? 'Se trimite...' : <><Send size={15} /> Trimite Oferta <ChevronRight size={15} /></>}
                     </button>
                     <p style={{ fontSize: '11px', color: t.textSecundar, margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-                      Poți depune o singură cotație pentru acest proiect. Cotația ta va fi vizibilă doar dezvoltatorului.
+                      Poți depune o singură ofertă pentru acest proiect. Oferta ta va fi vizibilă doar dezvoltatorului.
                     </p>
                   </form>
                 )}

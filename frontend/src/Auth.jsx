@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Mail, Lock, User, ArrowRight, Map, AlertCircle, Search, CheckCircle2, Loader2 } from 'lucide-react';
+import { Building2, Mail, Lock, User, ArrowRight, Map, AlertCircle, Search, CheckCircle2, Loader2, Phone, Hash } from 'lucide-react';
 import { apiLogin, apiRegister, apiVerificaCui, setToken } from './api.js';
 
 export default function Auth({ onLoginSuccess }) {
@@ -201,7 +201,10 @@ export default function Auth({ onLoginSuccess }) {
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>CUI / CIF</label>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); }} placeholder="Cod fiscal" style={{ flex: 1, minWidth: 0, padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                      <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                        <Hash size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                        <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); }} placeholder="Cod fiscal" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                      </div>
                       <button type="button" onClick={verificaCuiApasat} disabled={cuiVerificand}
                         title="Verifică CUI la ANAF"
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', flexShrink: 0, borderRadius: '12px', border: '1px solid rgba(47,111,237,0.3)', backgroundColor: 'rgba(47,111,237,0.1)', color: '#5B93FF', cursor: cuiVerificand ? 'default' : 'pointer' }}>
@@ -211,7 +214,10 @@ export default function Auth({ onLoginSuccess }) {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Telefon Contact</label>
-                    <input type="text" required value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="07xxxxxxxx" style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                    <div style={{ position: 'relative' }}>
+                      <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                      <input type="tel" required value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="07xx xxx xxx" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
                   </div>
                 </div>
 

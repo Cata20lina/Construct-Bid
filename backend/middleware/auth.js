@@ -12,7 +12,7 @@ const protejat = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     let utilizator = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { lucrari: true, disponibilitati: true },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
     if (!utilizator) {
       return res.status(401).json({ mesaj: 'Utilizatorul nu mai exista.' });
