@@ -114,7 +114,7 @@ export default function ProspectarePiataView({ t, user, esteSubcontractor, onSel
             Nu există momentan anunțuri de prospectare piață active.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: '14px' }}>
             {anunturiProspectare.map(p => (
               <div
                 key={p._id}
@@ -233,7 +233,7 @@ export default function ProspectarePiataView({ t, user, esteSubcontractor, onSel
 
       {/* ── Rezumat piață ── */}
       {piata && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '16px' }}>
           <Card t={t} style={{ padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: t.textSecundar, fontSize: '12.5px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
               <Zap size={14} /> Proiecte active
@@ -298,7 +298,7 @@ export default function ProspectarePiataView({ t, user, esteSubcontractor, onSel
 
       {/* ── Tendință lunară + top județe ── */}
       {piata && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.3fr) minmax(260px, 1fr)', gap: '16px' }}>
+        <div className="cb-layout-lateral" style={{ display: 'grid', gridTemplateColumns: 'minmax(min(300px, 100%), 1.3fr) minmax(min(260px, 100%), 1fr)', gap: '16px' }}>
           <Card t={t}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
               <TrendingUp size={18} style={{ color: t.success }} />

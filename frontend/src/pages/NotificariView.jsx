@@ -12,7 +12,7 @@ const TIP_CONFIG = {
   alerta:    { icon: <AlertTriangle size={15} />, color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   label: 'Alertă' },
 };
 
-export default function NotificariView({ t, notificari, onMarcheazaCitit, onMarcheazaToateCitite, onStergeNotificare, onStergeToate, setActiveTab }) {
+export default function NotificariView({ t, notificari, onMarcheazaCitit, onMarcheazaToateCitite, onStergeNotificare, onStergeToate, setActiveTab, onDeschide }) {
   const [filtru, setFiltru] = useState('toate'); // toate | necitite | oferta | castigat | proiect | alerta
 
   const marcheazaCitit = (id) => {
@@ -33,7 +33,9 @@ export default function NotificariView({ t, notificari, onMarcheazaCitit, onMarc
 
   const handleClick = (n) => {
     marcheazaCitit(n.id);
-    if ((n.tip === 'oferta' || n.tip === 'proiect' || n.tip === 'castigat') && setActiveTab) {
+    if (onDeschide && (n.link || n.proiectId)) {
+      onDeschide(n);
+    } else if ((n.tip === 'oferta' || n.tip === 'proiect' || n.tip === 'castigat') && setActiveTab) {
       setActiveTab('santiere');
     }
   };

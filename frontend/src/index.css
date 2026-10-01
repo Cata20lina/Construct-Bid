@@ -168,3 +168,87 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ═══ Ecrane mici ═══════════════════════════════════════════════════════════
+   Stilurile componentelor sunt inline, așa că regulile de aici folosesc
+   !important ca să le poată suprascrie. Clasele cb-* sunt puse pe elemente
+   doar acolo unde layout-ul trebuie să se schimbe. */
+
+html, body { max-width: 100%; overflow-x: hidden; }
+img, video { max-width: 100%; height: auto; }
+/* Câmpurile au implicit o lățime minimă; în rânduri flex le lăsăm să se strângă */
+input, select, textarea { min-width: 0; }
+
+/* ── Bara de navigare ── */
+/* Textele din meniu nu se rup niciodată pe două rânduri */
+.cb-nav-desktop button, .cb-nav-profil-text div { white-space: nowrap; }
+/* Un nume de firmă lung nu împinge meniul: se taie cu „…” */
+.cb-nav-profil-text { max-width: 180px; }
+.cb-nav-profil-text > div { overflow: hidden; text-overflow: ellipsis; }
+
+/* Laptop: întâi dispare numele firmei de lângă avatar (ocupă cel mai mult),
+   apoi meniul rămâne doar cu iconițe (textul apare ca tooltip). Pragurile
+   sunt măsurate pentru cel mai lung meniu (dezvoltator, cu soldul de tokenuri). */
+@media (max-width: 1499px) {
+  .cb-nav-profil-text { display: none; }
+}
+@media (max-width: 1299px) {
+  .cb-nav-text { display: none; }
+}
+/* Tabletă și telefon: meniul se pliază sub butonul ☰ */
+@media (max-width: 1024px) {
+  .cb-nav-desktop { display: none !important; }
+  .cb-nav-burger { display: flex !important; }
+  .cb-nav-mobil { display: flex !important; }
+}
+@media (max-width: 560px) {
+  .cb-nav-bara { padding: 0 14px !important; height: 60px !important; }
+  .cb-nav-secundar { display: none !important; }
+}
+
+/* ── Conținut ── */
+@media (max-width: 768px) {
+  .cb-main { padding: 20px 14px 32px !important; }
+}
+
+/* Copiii unei grile se pot strânge sub lățimea conținutului (hărți, câmpuri) */
+.cb-layout-lateral > *, .cb-grid-2 > *, .cb-grid-3 > *, .cb-grid-stat > *, .cb-filtre > * { min-width: 0; }
+
+/* Coloana laterală (formular de ofertă, panouri secundare) trece sub conținut */
+@media (max-width: 960px) {
+  .cb-layout-lateral { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Formulare pe două coloane → una singură */
+@media (max-width: 640px) {
+  .cb-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .cb-grid-stat { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 420px) {
+  .cb-grid-3 { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Filtrele de pe lista de proiecte */
+@media (max-width: 900px) {
+  .cb-filtre { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 520px) {
+  .cb-filtre { grid-template-columns: 1fr !important; }
+}
+
+/* Taburile din panoul de admin defilează orizontal în loc să iasă din ecran */
+.cb-tabs { overflow-x: auto; scrollbar-width: none; }
+.cb-tabs::-webkit-scrollbar { display: none; }
+.cb-tabs > button { flex-shrink: 0; white-space: nowrap; }
+
+/* ── Pagina de autentificare ── */
+@media (max-width: 900px) {
+  .cb-auth-brand { display: none !important; }
+  .cb-doar-mobil { display: block !important; }
+  .cb-doar-mobil-flex { display: inline-flex !important; }
+}
+
+/* iOS mărește pagina la focus pe câmpuri cu text sub 16px */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+}

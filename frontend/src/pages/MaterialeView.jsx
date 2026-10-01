@@ -10,7 +10,9 @@ import {
   apiAccetaArticolCerere, apiContactFurnizorCerere, apiCatalog, apiListaProiecte,
   apiComandaCatalog, apiComenzileMeleCatalog, apiComenziPrimiteCatalog,
   apiConfirmaComandaCatalog, apiRefuzaComandaCatalog, apiAnuleazaComandaCatalog, apiContactComandaCatalog,
+  apiActualizeazaCerere, apiTrimiteModificariCerere,
 } from '../api.js';
+import BannerSuspendare from '../components/BannerSuspendare.jsx';
 
 const CATEGORII_CATALOG = ['Materiale de construcții', 'Instalații', 'Electrice', 'Finisaje', 'Echipamente'];
 const UNITATI = ['buc', 'kg', 'to', 'mp', 'ml', 'mc', 'sac', 'palet', 'set', 'oră', 'zi'];
@@ -47,12 +49,12 @@ function SectionHeader({ icon, label, t }) {
 // ofertele lor; dezvoltatorii/subcontractorii creează cereri și le
 // gestionează pe ale lor. Catalogul e comun tuturor.
 // ═══════════════════════════════════════════════════════════════════════
-export default function MaterialeView({ t, user }) {
+export default function MaterialeView({ t, user, cerereInitiala }) {
   const esteFurnizor = user?.rol === 'FURNIZOR';
   const poateCreaCerere = user?.rol === 'DEZVOLTATOR' || user?.rol === 'SUBCONTRACTOR';
 
   const [subTab, setSubTab] = useState(esteFurnizor ? 'deschise' : 'mele');
-  const [cerereSelectataId, setCerereSelectataId] = useState(null);
+  const [cerereSelectataId, setCerereSelectataId] = useState(cerereInitiala || null);
   const [modalCreare, setModalCreare] = useState(false);
   const [produsDeComandat, setProdusDeComandat] = useState(null);
 
@@ -293,7 +295,7 @@ function CatalogGrid({ t, onComanda }) {
       {loading ? <CentruLoading t={t} /> : eroare ? <MesajEroare t={t} text={eroare} /> : produse.length === 0 ? (
         <EmptyState t={t} icon={<ShoppingBag size={28} />} text="Niciun produs găsit în catalog." />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))', gap: '14px' }}>
           {produse.map(p => (
             <div key={p._id} style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: `0 2px 10px ${t.shadow}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -604,7 +606,7 @@ function ModalCreareCerere({ t, user, onClose, onCreata, prefill }) {
             <textarea rows={2} value={descriere} onChange={e => setDescriere(e.target.value)} placeholder="Context suplimentar pentru furnizori..." style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label style={labelStyle}>Județ *</label>
               <input value={judet} onChange={e => setJudet(e.target.value)} placeholder="ex: Cluj" style={inputStyle} required />
@@ -615,7 +617,7 @@ function ModalCreareCerere({ t, user, onClose, onCreata, prefill }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label style={labelStyle}>Termen limită oferte (opțional)</label>
               <input type="date" value={termenLimita} onChange={e => setTermenLimita(e.target.value)} style={inputStyle} />
@@ -753,6 +755,20 @@ function CerereDetail({ t, user, cerereId, onBack }) {
       >
         <ArrowLeft size={15} /> Înapoi
       </button>
+
+      <BannerSuspendare
+        t={t}
+        element={cerere}
+        esteProprietar={esteCreator}
+        campuri={[
+          { cheie: 'titlu', eticheta: 'Titlu' },
+          { cheie: 'descriere', eticheta: 'Descriere', multilinie: true },
+          { cheie: 'oras', eticheta: 'Oraș' },
+        ]}
+        onSalveaza={(valori) => apiActualizeazaCerere(cerere._id, valori)}
+        onTrimite={() => apiTrimiteModificariCerere(cerere._id)}
+        onActualizat={incarca}
+      />
 
       <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, padding: '24px', boxShadow: `0 4px 24px ${t.shadow}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>

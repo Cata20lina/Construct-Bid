@@ -22,7 +22,7 @@ function LegalModal({ titlu, text, onClose }) {
   );
 }
 
-export default function Auth({ onLoginSuccess }) {
+export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
   const [isLogin, setIsLogin] = useState(true);
   const [ecranActiv, setEcranActiv] = useState('auth'); // 'auth' | 'uita-parola'
   const [modalLegal, setModalLegal] = useState(null); // 'termeni' | 'confidentialitate' | null
@@ -38,7 +38,7 @@ export default function Auth({ onLoginSuccess }) {
   const [judet, setJudet]                    = useState('');
   const [termeniAcceptati, setTermeniAcceptati] = useState(false);
 
-  const [eroare, setEroare]         = useState('');
+  const [eroare, setEroare]         = useState(mesajInitial);
   const [seIncarca, setSeIncarca]   = useState(false);
 
   // ─── Resetare parolă uitată — flux în 2 pași (cere cod → introdu cod+parolă) ──
@@ -173,7 +173,9 @@ export default function Auth({ onLoginSuccess }) {
         setNume(data.denumire);
       }
     } catch (err) {
-      setCuiRezultat('eroare');
+      // 400 = CUI invalid, 404 = negăsit la ANAF; doar restul înseamnă ANAF indisponibil
+      if (err.status === 400 || err.status === 404) setCuiRezultat({ gasit: false, mesaj: err.message });
+      else setCuiRezultat('eroare');
     } finally {
       setCuiVerificand(false);
     }
@@ -186,8 +188,8 @@ export default function Auth({ onLoginSuccess }) {
     }}>
 
       {/* ── Panou brand (ascuns pe mobil) — grilă tehnică + reper de colț ── */}
-      <div className="cb-blueprint-grid" style={{
-        flex: '1 1 46%', position: 'relative', overflow: 'hidden', display: window.innerWidth < 900 ? 'none' : 'flex',
+      <div className="cb-blueprint-grid cb-auth-brand" style={{
+        flex: '1 1 46%', position: 'relative', overflow: 'hidden', display: 'flex',
         flexDirection: 'column', justifyContent: 'space-between', padding: '48px',
         backgroundColor: '#0B0F16', borderRight: '1px solid rgba(255,255,255,0.06)',
       }}>
@@ -224,7 +226,7 @@ export default function Auth({ onLoginSuccess }) {
       <div style={{ width: '100%', maxWidth: '440px' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{ display: window.innerWidth < 900 ? 'inline-flex' : 'none', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+          <div className="cb-doar-mobil-flex" style={{ display: 'none', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
             <div style={{ background: 'linear-gradient(135deg, #2F6FED 0%, #1D4FC4 100%)', color: '#fff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center' }}>
               <Building2 size={22} />
             </div>
@@ -327,7 +329,7 @@ export default function Auth({ onLoginSuccess }) {
                 {/* Tip cont */}
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase' }}>Tipul Contului</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div className="cb-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                     <button type="button" onClick={() => setRol('SUBCONTRACTOR')} style={{ padding: '14px 8px', borderRadius: '12px', border: `2px solid ${rol === 'SUBCONTRACTOR' ? '#2F6FED' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'SUBCONTRACTOR' ? 'rgba(47,111,237,0.1)' : '#1e293b', color: rol === 'SUBCONTRACTOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
                       👷 Subcontractor
                     </button>
@@ -350,7 +352,7 @@ export default function Auth({ onLoginSuccess }) {
                 </div>
 
                 {/* CUI + Telefon */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>CUI / CIF</label>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -379,11 +381,11 @@ export default function Auth({ onLoginSuccess }) {
                   cuiRezultat.gasit ? (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', backgroundColor: 'rgba(34,178,125,0.1)', border: '1px solid rgba(34,178,125,0.25)', borderRadius: '10px', padding: '10px 14px', color: '#22B27D', fontSize: '12.5px' }}>
                       <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
-                      <span><strong>{cuiRezultat.denumire}</strong> — firmă găsită la ANAF{cuiRezultat.platitorTva ? ', plătitoare de TVA' : ''}{cuiRezultat.stareInactiv ? ' ⚠️ marcată inactivă fiscal' : ''}.</span>
+                      <span><strong>{cuiRezultat.denumire}</strong> — firmă găsită la ANAF{cuiRezultat.platitorTva ? ', plătitoare de TVA' : ''}{cuiRezultat.radiata ? ' ⚠️ radiată' : cuiRezultat.stareInactiv ? ' ⚠️ marcată inactivă fiscal' : ''}.</span>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '10px 14px', color: '#f87171', fontSize: '12.5px' }}>
-                      <AlertCircle size={15} /> Nu am găsit nicio firmă cu acest CUI la ANAF.
+                      <AlertCircle size={15} style={{ flexShrink: 0 }} /> {cuiRezultat.mesaj || 'Nu am găsit nicio firmă cu acest CUI la ANAF.'}
                     </div>
                   )
                 )}
@@ -473,7 +475,7 @@ export default function Auth({ onLoginSuccess }) {
           )}
         </div>
 
-        <div style={{ display: window.innerWidth < 900 ? 'block' : 'none', textAlign: 'center', marginTop: '24px' }}>
+        <div className="cb-doar-mobil" style={{ display: 'none', textAlign: 'center', marginTop: '24px' }}>
           <div style={{ fontSize: '13px', color: '#64748b' }}>© 2026 ConstructBid • Date stocate securizat în baza de date</div>
         </div>
       </div>

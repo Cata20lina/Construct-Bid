@@ -19,6 +19,13 @@ export default function SuportChat({ t, user }) {
   const deschisRef = useRef(deschis);
   deschisRef.current = deschis;
 
+  // Deschis din altă parte a aplicației (ex. click pe o notificare de la suport)
+  useEffect(() => {
+    const deschide = () => setDeschis(true);
+    window.addEventListener('cb-deschide-suport', deschide);
+    return () => window.removeEventListener('cb-deschide-suport', deschide);
+  }, []);
+
   const userId = user?.id || user?._id;
 
   useEffect(() => {

@@ -104,6 +104,7 @@ router.post('/mesaje', protejat, limiteazaMesajeSuport, async (req, res) => {
         userId: a.id,
         tip: 'alerta',
         titlu: `Solicitare de suport de la ${req.utilizator.nume}`,
+        link: 'admin:suport',
         mesaj: mesaj.text.slice(0, 120),
       }));
     }
@@ -212,6 +213,7 @@ router.post('/admin/conversatii/:id/mesaje', doarAdmin, async (req, res) => {
       userId: conversatie.userId,
       tip: 'alerta',
       titlu: 'Răspuns de la echipa de suport',
+      link: 'suport',
       mesaj: mesaj.text.slice(0, 120),
     });
 

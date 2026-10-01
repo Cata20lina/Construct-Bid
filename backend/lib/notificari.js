@@ -14,11 +14,12 @@ const { serializeNotificare } = require('./serialize');
  * @param {string} opts.mesaj
  * @param {string} [opts.proiectId]
  * @param {string} [opts.ofertaId]
+ * @param {string} [opts.link] unde duce click-ul (vezi câmpul `link` din schema)
  */
-async function creeazaNotificare({ userId, tip, titlu, mesaj, proiectId, ofertaId }) {
+async function creeazaNotificare({ userId, tip, titlu, mesaj, proiectId, ofertaId, link }) {
   try {
     const notificare = await prisma.notificare.create({
-      data: { userId, tip, titlu, mesaj, proiectId: proiectId || null, ofertaId: ofertaId || null },
+      data: { userId, tip, titlu, mesaj, proiectId: proiectId || null, ofertaId: ofertaId || null, link: link || '' },
     });
 
     try {

@@ -204,7 +204,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
       {/* ── Planuri de abonament ── */}
       <div>
         <h3 style={{ fontSize: '17px', fontWeight: '750', margin: '0 0 12px 0', color: t.textPrincipal }}>Planuri de abonament</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '16px' }}>
           {planuri.map(plan => {
             const Icon = ICON_PLAN[plan.id] || Zap;
             const esteCurent = plan.id === planCurent;
@@ -267,7 +267,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
         <h3 style={{ fontSize: '17px', fontWeight: '750', margin: '0 0 12px 0', color: t.textPrincipal, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ShoppingBag size={18} style={{ color: t.amber }} /> Cumpără tokenuri suplimentare
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '16px' }}>
           {pachete.map(pachet => (
             <Card key={pachet.id} t={t} style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', textAlign: 'center' }}>
               <Coins size={22} style={{ color: t.amber }} />

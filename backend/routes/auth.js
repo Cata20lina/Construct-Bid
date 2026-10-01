@@ -6,7 +6,7 @@ const prisma = require('../lib/prisma');
 const { serializeUserFull, serializeEvaluare } = require('../lib/serialize');
 const { protejat } = require('../middleware/auth');
 const { trimiteCodVerificare, trimiteCodResetareParola, genereazaCod } = require('../lib/mailer');
-const { verificaCuiLaAnaf } = require('./cui');
+const { verificaCuiLaAnaf, cuiValid } = require('./cui');
 const { limiteazaAutentificare, limiteazaCoduriEmail } = require('../middleware/rateLimit');
 
 const DURATA_COD_MS = 15 * 60 * 1000; // 15 minute
@@ -37,6 +37,9 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     // căzut, timeout), NU blocăm înregistrarea — nu e vina utilizatorului că
     // ANAF e indisponibil, iar contul poate fi verificat ulterior din profil.
     const cuiCurat = String(cui).replace(/[^0-9]/g, '');
+    if (!cuiValid(cuiCurat)) {
+      return res.status(400).json({ mesaj: `CUI ${cuiCurat || cui} nu este valid (cifra de control nu se potrivește). Verifică dacă l-ai scris corect.` });
+    }
     let cuiInfo = { gasit: false };
     try {
       cuiInfo = await verificaCuiLaAnaf(cuiCurat);

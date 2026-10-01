@@ -235,6 +235,13 @@ model Project {
 
   activ Boolean @default(true)
 
+  // ── Suspendare de către un admin până la corectarea anunțului. Anunțul
+  //    dispare din liste; dezvoltatorul vede motivul, îl modifică și trimite
+  //    modificările spre verificare (modificariTrimiseLa). ──
+  suspendat           Boolean   @default(false)
+  motivSuspendare     String    @default("")
+  modificariTrimiseLa DateTime?
+
   tipOfertare         TipOfertare @default(statica)
   licitatieStart      DateTime?
   licitatieEnd        DateTime?
@@ -338,6 +345,10 @@ model Notificare {
   // Legătură opțională către proiectul/oferta la care se referă, pentru navigare la click
   proiectId String?
   ofertaId  String?
+
+  // Unde duce click-ul pe notificare, ex. "proiect:<id>", "cerere:<id>",
+  // "modificari", "suport", "admin:verificare". Gol = după proiectId.
+  link String @default("")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
@@ -504,6 +515,11 @@ model CerereMateriale {
   oras         String       @default("")
   termenLimita DateTime?
   status       StatusCerere @default(deschisa)
+
+  // ── Suspendare de către un admin până la corectarea cererii (vezi Project) ──
+  suspendat           Boolean   @default(false)
+  motivSuspendare     String    @default("")
+  modificariTrimiseLa DateTime?
 
   // Legătură opțională către un proiect existent — dă context (locație,
   // dezvoltator) dar nu e obligatorie: oricine are nevoie de materiale

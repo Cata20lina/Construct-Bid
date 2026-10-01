@@ -168,7 +168,7 @@ export default function OfertaDetailView({
           <Briefcase size={13} /> Despre Firmă
         </div>
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: '12px' }}>
             <MiniStat t={t} icon={<Briefcase size={14} />} label="Ani experiență" valoare={subcontractor.aniExperienta ?? '—'} />
             <MiniStat t={t} icon={<Users size={14} />} label="Angajați" valoare={subcontractor.nrAngajati ?? '—'} />
             <MiniStat t={t} icon={<MapPin size={14} />} label="Județ" valoare={subcontractor.judet || '—'} />
@@ -194,7 +194,7 @@ export default function OfertaDetailView({
                   <div style={{ fontSize: '11px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', marginBottom: '8px' }}>
                     Situație financiară (bilanț {subcontractor.bilant.an})
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: t.textSecundar }}>Cifră de afaceri</div>
                       <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>

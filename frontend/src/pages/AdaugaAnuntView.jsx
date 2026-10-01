@@ -153,7 +153,7 @@ export default function AdaugaAnuntView({
         <FormSection label="Tip Anunț" t={t}>
           <div>
             <label style={labelBase}><Target size={12} /> Cum publici acest anunț?</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 
               {/* Card ANUNȚ NORMAL */}
               <button
@@ -240,7 +240,7 @@ export default function AdaugaAnuntView({
           </div>
           <div>
             <label style={labelBase}><Layers size={12} /> Categorie Serviciu</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+            <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
               {CATEGORII.map(cat => {
                 const activ = formAnunt.categorie === cat.value;
                 return (
@@ -268,7 +268,7 @@ export default function AdaugaAnuntView({
 
         {/* Bloc 2 — Financiar & Timp */}
         <FormSection label="2. Financiar & Timp" t={t}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelBase}><Banknote size={12} /> Buget Maxim (RON)</label>
               <input
@@ -298,7 +298,7 @@ export default function AdaugaAnuntView({
 
         {/* Bloc 3 — Condiții de Participare (opțional) */}
         <FormSection label="3. Condiții de Participare (opțional)" t={t}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelBase}><Clock size={12} /> Termen Limită Depunere Ofertă</label>
               <input
@@ -352,7 +352,7 @@ export default function AdaugaAnuntView({
 
         {/* Bloc 4 — Locație */}
         <FormSection label="4. Locație Șantier" t={t}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelBase}><MapPin size={12} /> Județ</label>
               <select
@@ -393,7 +393,7 @@ export default function AdaugaAnuntView({
         <FormSection label="5. Modul de Ofertare" t={t}>
           <div>
             <label style={labelBase}><Gauge size={12} /> Cum vrei să primești oferte?</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 
               {/* Card STATICĂ */}
               <button
@@ -452,7 +452,7 @@ export default function AdaugaAnuntView({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 <Clock size={13} /> Fereastra de Timp a Licitației Live
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={labelBase}>Start Licitație</label>
                   <input

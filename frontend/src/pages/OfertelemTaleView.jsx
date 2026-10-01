@@ -39,7 +39,7 @@ export default function OfertelemTaleView({ t, oferteleMele = [], onSelectOferta
       </div>
 
       {/* ── Statistici rapide ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: '16px' }}>
         {stats.map((s, i) => (
           <div key={i} style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>

@@ -13,6 +13,7 @@ import AbonamentView from './pages/AbonamentView.jsx';
 import OfertelemTaleView from './pages/OfertelemTaleView.jsx';
 import AdminView from './pages/AdminView.jsx';
 import MaterialeView from './pages/MaterialeView.jsx';
+import ModificariView from './pages/ModificariView.jsx';
 import SuportChat from './components/SuportChat.jsx';
 
 import {
@@ -21,6 +22,7 @@ import {
   apiOferteProiect, apiAnunturiProspectare,
   apiNotificari, apiMarcheazaNotificareCitita, apiMarcheazaToateNotificarileCitite,
   apiStergeNotificare, apiStergeToateNotificarile,
+  apiProiect, apiModificariCerute,
 } from './api.js';
 import { getSocket } from './socket.js';
 
@@ -85,6 +87,16 @@ export default function App() {
 
   const [notificari, setNotificari] = useState([]);
   const [ofertaSelectata, setOfertaSelectata] = useState(null);
+
+  // Anunțuri/cereri proprii suspendate de admin — pagina „Modificări cerute”
+  // apare în meniu doar cât timp lista nu e goală.
+  const [modificari, setModificari] = useState({ proiecte: [], cereri: [] });
+  // Ținte de navigare din notificări: o cerere de deschis în „Materiale” și
+  // tab-ul de deschis în panoul de admin. `cheie` forțează re-montarea.
+  const [cerereDeschisa, setCerereDeschisa] = useState(null);
+  const [adminTab, setAdminTab] = useState({ tab: 'statistici', cheie: 0 });
+  // Mesaj afișat pe pagina de login după o deconectare forțată (cont suspendat)
+  const [mesajDeconectare, setMesajDeconectare] = useState('');
 
   const [loadingAnunt, setLoadingAnunt] = useState(false);
   const [errorAnunt, setErrorAnunt] = useState('');
@@ -155,6 +167,22 @@ export default function App() {
       .catch(err => console.error('Eroare notificari:', err));
   }, [user]);
 
+  const incarcaModificari = useCallback(() => {
+    if (!user || user.rol === 'ADMIN') return;
+    apiModificariCerute()
+      .then(data => setModificari(data))
+      .catch(err => console.error('Eroare modificari cerute:', err));
+  }, [user]);
+
+  // ── Sesiunea e una singură pe browser (token în localStorage). Dacă alt tab
+  // se conectează cu alt cont, tab-ul ăsta ar trimite cereri cu token-ul
+  // celuilalt cont — reîncărcăm pagina ca să afișeze contul real. ──
+  useEffect(() => {
+    const laSchimbare = (e) => { if (e.key === 'cb_token') window.location.reload(); };
+    window.addEventListener('storage', laSchimbare);
+    return () => window.removeEventListener('storage', laSchimbare);
+  }, []);
+
   // ── Încărcare inițială date (doar după login) — totul vine din baza de date prin API ──
   useEffect(() => {
     if (!user) return;
@@ -162,7 +190,8 @@ export default function App() {
     incarcaAnunturiProspectare();
     incarcaOferteleMele();
     incarcaNotificari();
-  }, [user, incarcaProiecte, incarcaAnunturiProspectare, incarcaOferteleMele, incarcaNotificari]);
+    incarcaModificari();
+  }, [user, incarcaProiecte, incarcaAnunturiProspectare, incarcaOferteleMele, incarcaNotificari, incarcaModificari]);
 
   // ── Socket: camera personală a utilizatorului + camerele proiectelor
   // proprii, pentru actualizări de ofertă live pe pagina de detaliu.
@@ -194,11 +223,13 @@ export default function App() {
     const onNotificareNoua = (notificare) => {
       if (!notificare) return;
       setNotificari(prev => [notificare, ...prev.filter(n => n.id !== notificare.id)]);
+      // O suspendare sau o aprobare schimbă lista de modificări cerute
+      if (notificare.link === 'modificari' || /reactivat/i.test(notificare.titlu || '')) incarcaModificari();
     };
 
     socket.on('notificare_noua', onNotificareNoua);
     return () => socket.off('notificare_noua', onNotificareNoua);
-  }, [user]);
+  }, [user, incarcaModificari]);
 
   // ── Acțiuni asupra notificărilor — persistate pe server, nu doar local ──
   const marcheazaNotificareCitita = useCallback((id) => {
@@ -236,6 +267,34 @@ export default function App() {
     setActiveTab(tabTinta);
   };
 
+  // ── Click pe notificare: deschide locul la care se referă ──
+  const deschideDinNotificare = async (n) => {
+    const link = n.link || (n.proiectId ? `proiect:${n.proiectId}` : '');
+    const [tinta, id] = link.split(':');
+
+    if (tinta === 'proiect' && id) {
+      try {
+        const p = await apiProiect(id);
+        deschideProiect(p, p.esteProspectare ? 'prospectare' : 'santiere');
+      } catch {
+        setActiveTab('santiere'); // proiectul a fost șters între timp
+      }
+    } else if (tinta === 'cerere' && id) {
+      setCerereDeschisa({ id, cheie: Date.now() });
+      setActiveTab('materiale');
+    } else if (tinta === 'materiale') {
+      setActiveTab('materiale');
+    } else if (tinta === 'modificari') {
+      incarcaModificari();
+      setActiveTab('modificari');
+    } else if (tinta === 'suport') {
+      window.dispatchEvent(new Event('cb-deschide-suport'));
+    } else if (tinta === 'admin') {
+      setAdminTab({ tab: id || 'statistici', cheie: Date.now() });
+      setActiveTab('admin');
+    }
+  };
+
   const handleLogout = () => {
     setToken(null);
     setUser(null);
@@ -247,6 +306,25 @@ export default function App() {
     setProiectSelectat(null);
     setOfertaSelectata(null);
   };
+
+  // ── Cont suspendat de admin: deconectare imediată, cu motivul pe pagina de login.
+  // Vine fie live prin socket, fie din primul răspuns 403 al API-ului. ──
+  useEffect(() => {
+    if (!user) return;
+    const deconecteaza = (mesaj) => {
+      setMesajDeconectare(mesaj);
+      handleLogout();
+    };
+    const dinApi = (e) => deconecteaza(e.detail);
+    const dinSocket = ({ motiv } = {}) => deconecteaza(`Contul tău a fost suspendat.${motiv ? ` Motiv: ${motiv}` : ''} Contactează-ne dacă crezi că e o greșeală.`);
+    window.addEventListener('cb-cont-suspendat', dinApi);
+    const socket = getSocket();
+    socket.on('cont_suspendat', dinSocket);
+    return () => {
+      window.removeEventListener('cb-cont-suspendat', dinApi);
+      socket.off('cont_suspendat', dinSocket);
+    };
+  }, [user]);
 
   // ── Adaugă anunț nou (proiect) — salvat direct în MongoDB prin API ──
   const adaugaAnuntNou = async (e) => {
@@ -369,7 +447,8 @@ export default function App() {
   // ── Dacă nu e autentificat, arată Auth pe tot ecranul ──
   if (!user || activeTab === 'auth') {
     return (
-      <Auth onLoginSuccess={(userData) => {
+      <Auth mesajInitial={mesajDeconectare} onLoginSuccess={(userData) => {
+        setMesajDeconectare('');
         setUser(userData);
         setActiveTab('index');
       }} />
@@ -407,7 +486,21 @@ export default function App() {
         nrNotificariNecitite={notificari.filter(n => !n.citit).length}
       />
 
-      <main style={{ width: '100%', maxWidth: '2000px', margin: '0 auto', padding: '40px 24px', boxSizing: 'border-box', flex: 1 }}>
+      <main className="cb-main" style={{ width: '100%', maxWidth: '2000px', margin: '0 auto', padding: '40px 24px', boxSizing: 'border-box', flex: 1 }}>
+
+        {/* Anunțuri suspendate de admin: o bară discretă, nu un element de meniu */}
+        {activeTab !== 'modificari' && modificari.proiecte.length + modificari.cereri.length > 0 && (
+          <button
+            onClick={() => setActiveTab('modificari')}
+            style={{
+              display: 'block', width: '100%', maxWidth: '1100px', margin: '-16px auto 24px', padding: '10px 14px',
+              borderRadius: '8px', border: `1px solid ${t.amber}`, backgroundColor: t.amberSoft,
+              color: t.textPrincipal, fontSize: '13.5px', textAlign: 'left', cursor: 'pointer',
+            }}
+          >
+            Ai {modificari.proiecte.length + modificari.cereri.length === 1 ? 'un anunț suspendat' : `${modificari.proiecte.length + modificari.cereri.length} anunțuri suspendate`} până faci modificări. <b style={{ color: t.amber }}>Vezi ce trebuie corectat →</b>
+          </button>
+        )}
 
         {activeTab === 'santiere' && (
           ofertaSelectata ? (
@@ -433,6 +526,7 @@ export default function App() {
               onSelectOferta={(oferta, idx, proiect) =>
                 setOfertaSelectata({ oferta, indexOferta: idx, proiect })
               }
+              onProiectActualizat={(p) => { setProiectSelectat(p); incarcaProiecte(); incarcaAnunturiProspectare(); }}
             />
           ) : (
             <SantiereView t={t} proiecte={proiecte} onSelect={(p) => setProiectSelectat(p)} user={user} />
@@ -456,6 +550,7 @@ export default function App() {
             onStergeNotificare={stergeNotificare}
             onStergeToate={stergeToateNotificarile}
             setActiveTab={setActiveTab}
+            onDeschide={deschideDinNotificare}
           />
         )}
 
@@ -472,6 +567,7 @@ export default function App() {
               onSelectOferta={(oferta, idx, proiect) =>
                 setOfertaSelectata({ oferta, indexOferta: idx, proiect })
               }
+              onProiectActualizat={(p) => { setProiectSelectat(p); incarcaProiecte(); incarcaAnunturiProspectare(); }}
             />
           ) : (
             <ProspectarePiataView
@@ -546,11 +642,15 @@ export default function App() {
         )}
 
         {activeTab === 'materiale' && (
-          <MaterialeView t={t} user={user} />
+          <MaterialeView key={cerereDeschisa?.cheie} t={t} user={user} cerereInitiala={cerereDeschisa?.id} />
+        )}
+
+        {activeTab === 'modificari' && (
+          <ModificariView t={t} modificari={modificari} onActualizat={() => { incarcaModificari(); incarcaProiecte(); }} />
         )}
 
         {activeTab === 'admin' && user?.rol === 'ADMIN' && (
-          <AdminView t={t} />
+          <AdminView key={adminTab.cheie} t={t} tabInitial={adminTab.tab} />
         )}
       </main>
 

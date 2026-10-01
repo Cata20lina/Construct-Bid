@@ -22,7 +22,7 @@ router.get('/oportunitati', protejat, doarRol('SUBCONTRACTOR', 'FURNIZOR'), asyn
     const proiecteOfertate = new Set(oferteProprii.map(o => o.proiectId));
 
     const proiecte = await prisma.project.findMany({
-      where: { activ: true, esteProspectare: false },
+      where: { activ: true, suspendat: false, esteProspectare: false, dezvoltator: { suspendat: false } },
       include: {
         dezvoltator: { select: MINI_SELECT },
         _count: { select: { oferte: true } },

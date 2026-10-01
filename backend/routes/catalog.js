@@ -21,7 +21,7 @@ router.get('/', protejat, async (req, res) => {
 
     const where = {
       pret: { not: null },
-      user: { rol: 'FURNIZOR' },
+      user: { rol: 'FURNIZOR', suspendat: false },
     };
     if (categorie) where.categorie = categorie;
     if (judet) {
@@ -94,6 +94,7 @@ router.post('/:produsId/comanda', protejat, doarRol('DEZVOLTATOR', 'SUBCONTRACTO
       tip: 'oferta',
       titlu: `Ai primit o comandă pentru "${produs.titlu}"`,
       mesaj: `${cantitateNum} ${comanda.unitateMasura} — de la ${req.utilizator.nume}`,
+      link: 'materiale',
     });
 
     res.status(201).json(serializeComandaCatalog(comanda));
@@ -156,6 +157,7 @@ router.put('/comenzi/:id/confirma', protejat, doarRol('FURNIZOR'), async (req, r
       tip: 'castigat',
       titlu: `Comanda ta pentru "${comanda.denumireProdus}" a fost confirmată!`,
       mesaj: `Furnizor: ${actualizata.furnizor.nume}`,
+      link: 'materiale',
     });
     res.json(serializeComandaCatalog(actualizata));
   } catch (err) {
@@ -186,6 +188,7 @@ router.put('/comenzi/:id/refuza', protejat, doarRol('FURNIZOR'), async (req, res
       tip: 'alerta',
       titlu: `Comanda ta pentru "${comanda.denumireProdus}" a fost refuzată`,
       mesaj: actualizata.motivRefuz || 'Furnizorul nu a specificat un motiv.',
+      link: 'materiale',
     });
     res.json(serializeComandaCatalog(actualizata));
   } catch (err) {

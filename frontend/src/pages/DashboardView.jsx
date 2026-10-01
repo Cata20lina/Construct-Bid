@@ -33,7 +33,7 @@ export default function DashboardView({ user, t }) {
       </div>
 
       {/* Grid-ul de Statistici */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '24px' }}>
         {statistici.map((stat, idx) => (
           <div key={idx} style={{ backgroundColor: t.bgCard, padding: '24px', borderRadius: '16px', border: `1px solid ${t.borderCard}`, boxShadow: `0 4px 20px ${t.shadow}`, transition: 'all 0.25s ease' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -46,7 +46,7 @@ export default function DashboardView({ user, t }) {
       </div>
 
       {/* Secțiunea Inferioară în Două Coloane Fluide */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px', alignItems: 'start' }}>
+      <div className="cb-layout-lateral" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px', alignItems: 'start' }}>
         
         {/* Șantiere Recomandate */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

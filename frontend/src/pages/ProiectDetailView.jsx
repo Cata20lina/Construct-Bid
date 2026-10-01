@@ -10,7 +10,9 @@ import {
 import {
   apiOferteProiect, apiTrimiteOferta, apiUploadFisiere, apiContactOferta,
   apiListaClarificari, apiAdaugaClarificare, apiRaspundeClarificare,
+  apiActualizeazaProiect, apiTrimiteModificariProiect,
 } from '../api.js';
+import BannerSuspendare from '../components/BannerSuspendare.jsx';
 import { getSocket } from '../socket.js';
 
 const CATEGORIE_CONFIG = {
@@ -41,6 +43,7 @@ export default function ProiectDetailView({
   loadingOferta,
   errorOferta,
   onSelectOferta,   // callback: (oferta, idx, proiect) => void — deschide OfertaDetailView (doar pentru statică)
+  onProiectActualizat, // callback: (proiect) => void — după ce dezvoltatorul corectează un anunț suspendat
 }) {
   const [formOferta, setFormOferta] = useState({ pret: '', zile: '', mesaj: '' });
   const [focusat, setFocusat]       = useState(null);
@@ -297,6 +300,21 @@ export default function ProiectDetailView({
         </button>
       </div>
 
+      <BannerSuspendare
+        t={t}
+        element={proiect}
+        esteProprietar={!!user && [user.id, user._id].includes(proiect.dezvoltator?._id)}
+        campuri={[
+          { cheie: 'titlu', eticheta: 'Titlu' },
+          { cheie: 'descriere', eticheta: 'Descriere', multilinie: true },
+          { cheie: 'buget', eticheta: 'Buget' },
+          { cheie: 'locatie', eticheta: 'Locație' },
+        ]}
+        onSalveaza={(valori) => apiActualizeazaProiect(proiect._id, valori)}
+        onTrimite={() => apiTrimiteModificariProiect(proiect._id)}
+        onActualizat={onProiectActualizat}
+      />
+
       {/* ── HEADER PROIECT ── */}
       <div style={{
         backgroundColor: t.bgCard, borderRadius: '20px',
@@ -365,7 +383,7 @@ export default function ProiectDetailView({
           )}
 
           {/* Statistici rapide */}
-          <div style={{ display: 'grid', gridTemplateColumns: esteDinamica ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '12px', marginTop: '28px' }}>
+          <div className="cb-grid-stat" style={{ display: 'grid', gridTemplateColumns: esteDinamica ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '12px', marginTop: '28px' }}>
             {[
               { icon: <Banknote size={14} color="#10b981" />, label: 'Buget Maxim', value: proiect.bugetValoare ? `${Number(proiect.bugetValoare).toLocaleString()} RON` : (proiect.buget || '–'), color: '#10b981' },
               { icon: <Calendar size={14} color="#f59e0b" />, label: 'Termen Execuție', value: `${proiect.zile || '–'} zile`, color: t.textPrincipal },
@@ -395,7 +413,7 @@ export default function ProiectDetailView({
           LICITAȚIE DINAMICĂ — clasament live + formular ofertare repetată
          ════════════════════════════════════════════════════════════════ */}
       {esteDinamica ? (
-        <div style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
+        <div className="cb-layout-lateral" style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
 
           {/* Coloana stânga: descriere + clasament live */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -620,7 +638,7 @@ export default function ProiectDetailView({
         /* ════════════════════════════════════════════════════════════════
             OFERTARE STATICĂ — formular clasic, o singură ofertă
            ════════════════════════════════════════════════════════════════ */
-        <div style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
+        <div className="cb-layout-lateral" style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 

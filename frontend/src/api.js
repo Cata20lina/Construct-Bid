@@ -36,6 +36,10 @@ async function handleResponse(res) {
   }
   if (!res.ok) {
     const mesaj = (data && data.mesaj) || `Eroare server (${res.status})`;
+    // Contul a fost suspendat între timp: App deconectează utilizatorul
+    if (res.status === 403 && mesaj.startsWith('Contul tău a fost suspendat')) {
+      window.dispatchEvent(new CustomEvent('cb-cont-suspendat', { detail: mesaj }));
+    }
     const err = new Error(mesaj);
     err.status = res.status;
     err.payload = data;
@@ -604,6 +608,99 @@ export async function apiAdminActiveazaProiect(id) {
 
 export async function apiAdminStergeProiect(id) {
   const res = await fetch(`${API_URL}/admin/proiecte/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+function postJson(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(body),
+  }).then(handleResponse);
+}
+
+// Suspendare până la modificări (motivul ajunge la firmă ca mesaj)
+export function apiAdminSuspendaProiect(id, motiv) {
+  return postJson(`${API_URL}/admin/proiecte/${id}/suspenda`, { motiv });
+}
+
+export function apiAdminAprobaProiect(id) {
+  return postJson(`${API_URL}/admin/proiecte/${id}/aproba`, {});
+}
+
+export async function apiAdminCereri(filtre = {}) {
+  const params = new URLSearchParams(filtre);
+  const res = await fetch(`${API_URL}/admin/cereri?${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export function apiAdminSuspendaCerere(id, motiv) {
+  return postJson(`${API_URL}/admin/cereri/${id}/suspenda`, { motiv });
+}
+
+export function apiAdminAprobaCerere(id) {
+  return postJson(`${API_URL}/admin/cereri/${id}/aproba`, {});
+}
+
+export function apiAdminVerificaCui(userId) {
+  return postJson(`${API_URL}/admin/utilizatori/${userId}/verifica-cui`, {});
+}
+
+export function apiAdminTrimiteMesaj(userId, text) {
+  return postJson(`${API_URL}/admin/utilizatori/${userId}/mesaj`, { text });
+}
+
+export async function apiAdminContinutUtilizator(userId) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${userId}/continut`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminStergeContinut(tip, id) {
+  const res = await fetch(`${API_URL}/admin/continut/${tip}/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminStergeUtilizator(id) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── Corectarea unui anunț/cereri suspendate de admin ──────────────────────
+export async function apiActualizeazaProiect(id, payload) {
+  const res = await fetch(`${API_URL}/projects/${id}`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export function apiTrimiteModificariProiect(id) {
+  return postJson(`${API_URL}/projects/${id}/trimite-modificari`, {});
+}
+
+export async function apiActualizeazaCerere(id, payload) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${id}`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export function apiTrimiteModificariCerere(id) {
+  return postJson(`${API_URL}/cereri-materiale/${id}/trimite-modificari`, {});
+}
+
+// Anunțurile/cererile proprii suspendate până la modificări
+export async function apiModificariCerute() {
+  const res = await fetch(`${API_URL}/modificari`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// Pentru admin: tot ce e suspendat, întâi ce a fost retrimis spre verificare
+export async function apiAdminDeVerificat() {
+  const res = await fetch(`${API_URL}/admin/de-verificat`, { headers: authHeaders() });
   return handleResponse(res);
 }
 

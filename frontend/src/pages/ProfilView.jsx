@@ -112,7 +112,7 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(170px, 100%), 1fr))', gap: '14px' }}>
             {campProfil.map((camp, i) => (
               <div key={i} style={{ backgroundColor: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '12px', padding: '13px 15px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '6px' }}>
@@ -127,7 +127,7 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
       </div>
 
       {/* ── Statistici rapide ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: '16px' }}>
         {statistici.map((s, i) => (
           <div key={i} style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
@@ -358,7 +358,7 @@ function StatusContCard({ t, user, setUser, setActiveTab }) {
           <div style={{ fontSize: '12px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', marginBottom: '10px' }}>
             Situație financiară (bilanț {user.bilant.an}, ANAF)
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '11px', color: t.textSecundar }}>Cifră de afaceri</div>
               <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>
@@ -577,7 +577,7 @@ function ServiciiProfilCard({
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))', gap: '14px' }}>
               <MiniStat t={t} icon={<Briefcase size={14} />} label="Ani de activitate" valoare={user?.aniExperienta ?? '—'} />
               <MiniStat t={t} icon={<Users size={14} />} label="Număr angajați" valoare={user?.nrAngajati ?? '—'} />
               <MiniStat t={t} icon={<Phone size={14} />} label="Telefon contact" valoare={user?.telefon || '—'} />
@@ -612,7 +612,7 @@ function ServiciiProfilCard({
           <form onSubmit={salveaza} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <div style={labelStyle}><Star size={12} /> {etichetaCategorii}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '10px' }}>
                 {categoriiOptiuni.map(cat => {
                   const activ = form.categoriiServicii.includes(cat.value);
                   return (
@@ -661,7 +661,7 @@ function ServiciiProfilCard({
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={labelStyle}><Briefcase size={12} /> Ani de activitate</label>
                 <input type="number" min="0" placeholder="ex: 8"
@@ -1176,7 +1176,7 @@ function DisponibilitateCard({ t, user, setUser, esteFurnizor = false }) {
       <div style={{ padding: '20px 24px' }}>
         {formDeschis && (
           <form onSubmit={adauga} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: perioade.length ? '18px' : 0, padding: '16px', borderRadius: '12px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
                 <label style={{ fontSize: '10.5px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase' }}>De la</label>
                 <input type="date" value={form.start} onChange={e => setForm({ ...form, start: e.target.value })} style={{ ...inputStyle, marginTop: '5px' }} />

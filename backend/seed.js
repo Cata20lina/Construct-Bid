@@ -12,6 +12,8 @@ const seed = async () => {
     console.log('✅ PostgreSQL conectat');
 
     // Șterge datele vechi (ordinea contează din cauza foreign keys)
+    await prisma.ofertaMateriale.deleteMany({});
+    await prisma.comandaCatalog.deleteMany({});
     await prisma.oferta.deleteMany({});
     await prisma.project.deleteMany({});
     await prisma.disponibilitate.deleteMany({});

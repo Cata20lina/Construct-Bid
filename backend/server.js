@@ -22,6 +22,7 @@ const suportRoutes = require('./routes/suport');
 const adminRoutes = require('./routes/admin');
 const cereriMaterialeRoutes = require('./routes/cereriMateriale');
 const catalogRoutes = require('./routes/catalog');
+const modificariRoutes = require('./routes/modificari');
 
 const { initSockets } = require('./sockets');
 const { reporneșteTimerele } = require('./services/licitatie');
@@ -70,6 +71,7 @@ app.use('/api/suport', suportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/cereri-materiale', cereriMaterialeRoutes);
 app.use('/api/catalog', catalogRoutes);
+app.use('/api/modificari', modificariRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));

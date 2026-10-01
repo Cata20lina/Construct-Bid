@@ -78,7 +78,7 @@ export default function SantiereView({ t, proiecte = [], onSelect, user }) {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'center' }}>
+        <div className="cb-filtre" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'center' }}>
 
           <select
             value={filtruCategorie}
@@ -139,7 +139,7 @@ export default function SantiereView({ t, proiecte = [], onSelect, user }) {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {proiecteFiltrate.length > 0 ? (
           proiecteFiltrate.map((p) => {
             const stilCat = getCategorieStyle(p.categorie);

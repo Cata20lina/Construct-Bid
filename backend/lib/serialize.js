@@ -129,6 +129,8 @@ function serializeUserAdmin(u) {
     telefon: u.telefon,
     verificat: u.verificat,
     cuiVerificat: u.cuiVerificat || false,
+    cuiDenumireOficiala: u.cuiDenumireOficiala || '',
+    cuiVerificatLa: u.cuiVerificatLa || null,
     suspendat: u.suspendat || false,
     suspendatMotiv: u.suspendatMotiv || '',
     tokenuri: typeof u.tokenuri === 'number' ? u.tokenuri : 0,
@@ -200,6 +202,9 @@ function serializeProject(p) {
     experientaMinima: p.experientaMinima || '',
     dezvoltator: p.dezvoltator ? serializeUserMini(p.dezvoltator) : p.dezvoltatorId,
     activ: p.activ,
+    suspendat: !!p.suspendat,
+    motivSuspendare: p.motivSuspendare || '',
+    modificariTrimiseLa: p.modificariTrimiseLa || null,
     tipOfertare: p.tipOfertare,
     licitatieStart: p.licitatieStart,
     licitatieEnd: p.licitatieEnd,
@@ -228,6 +233,7 @@ function serializeNotificare(n) {
     data: n.createdAt,
     proiectId: n.proiectId || undefined,
     ofertaId: n.ofertaId || undefined,
+    link: n.link || undefined,
   };
 }
 
@@ -345,6 +351,9 @@ function serializeCerereMateriale(c) {
     oras: c.oras || '',
     termenLimita: c.termenLimita || null,
     status: c.status,
+    suspendat: !!c.suspendat,
+    motivSuspendare: c.motivSuspendare || '',
+    modificariTrimiseLa: c.modificariTrimiseLa || null,
     proiect: c.proiect ? serializeProject(c.proiect) : (c.proiectId || null),
     creatDe: c.creatDe ? serializeUserMini(c.creatDe) : c.creatDeId,
     articole: (c.articole || []).map(serializeCerereArticol),

@@ -206,7 +206,7 @@ export default function IndexView({ t, setActiveTab, user }) {
       </div>
 
       {/* ── Fapte rapide despre platformă ── */}
-      <div className="cb-idx-in-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', margin: '40px 0 64px' }}>
+      <div className="cb-idx-in-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '14px', margin: '40px 0 64px' }}>
         {faptRapid.map((f, i) => (
           <div key={i} className="cb-idx-fact" style={{ ...cardStyle, padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
             <div style={{ width: '34px', height: '34px', flexShrink: 0, borderRadius: '9px', backgroundColor: t.accentSoft, color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -226,7 +226,7 @@ export default function IndexView({ t, setActiveTab, user }) {
         <h2 style={sectionTitleStyle}>
           Cum funcționează pentru {esteSubcontractor ? 'subcontractori' : esteFurnizor ? 'furnizori' : 'dezvoltatori'}
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '28px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '16px', marginTop: '28px' }}>
           {pasi.map((p, i) => (
             <div key={i} className="cb-idx-card" style={cardStyle}>
               <div className="cb-idx-icon" style={{
@@ -252,7 +252,7 @@ export default function IndexView({ t, setActiveTab, user }) {
         <p style={{ fontSize: '14px', color: t.textSecundar, margin: '0 auto', maxWidth: '560px', lineHeight: 1.6, textAlign: 'center' }}>
           Fiecare proiect publicat pe ConstructBid are unul din cele două moduri de ofertare, ales de dezvoltator la publicare.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '28px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '16px', marginTop: '28px' }}>
           {tipuriOfertare.map((tp, i) => (
             <div key={i} className="cb-idx-card" style={cardStyle}>
               <div className="cb-idx-icon" style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: tp.bg, color: tp.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
@@ -273,7 +273,7 @@ export default function IndexView({ t, setActiveTab, user }) {
             Categorii de lucrări acoperite
           </h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '14px' }}>
           {categorii.map((c, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
@@ -310,7 +310,7 @@ export default function IndexView({ t, setActiveTab, user }) {
       </div>
 
       {/* ── Încredere și siguranță + Notificări live ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '16px', marginBottom: '32px' }}>
         <div className="cb-idx-card" style={cardStyle}>
           <div className="cb-idx-icon" style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'rgba(16,185,129,0.10)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
             <Hash size={20} />
@@ -342,7 +342,7 @@ export default function IndexView({ t, setActiveTab, user }) {
         <p style={{ fontSize: '13.5px', color: t.textSecundar, margin: '0 0 20px', lineHeight: 1.65, maxWidth: '680px' }}>
           Fiecare cont nou pornește cu un sold de token-uri, consumate la publicarea unui anunț. Costul diferă în funcție de tipul anunțului:
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', backgroundColor: t.bgInput, borderRadius: '10px' }}>
             <CheckCircle2 size={18} color={t.accent} />
             <div>

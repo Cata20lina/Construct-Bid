@@ -157,6 +157,43 @@ async function notificaRaspunsSuport({ destinatar, text: continut }) {
   return trimiteEmailSigur({ to: destinatar.email, subject, text, html });
 }
 
+// ─── Mesaj inițiat de echipă (avertisment, anunț suspendat etc.) ───────────
+async function notificaMesajAdmin({ destinatar, text: continut }) {
+  const subject = 'Mesaj de la echipa ConstructBid';
+  const text = `Salut, ${destinatar.nume}!
+
+Echipa ConstructBid ți-a trimis un mesaj:
+
+"${continut}"
+
+Poți răspunde din chat-ul de suport de pe platformă.`;
+  const html = wrapHtml('Mesaj de la echipa ConstructBid', `
+      <p>Salut, ${destinatar.nume}!</p>
+      <p>Echipa ConstructBid ți-a trimis un mesaj:</p>
+      <p style="padding: 12px 16px; background: #f1f5f9; border-radius: 8px; white-space: pre-wrap;">${continut}</p>
+      <p>Poți răspunde din chat-ul de suport de pe platformă.</p>`);
+  return trimiteEmailSigur({ to: destinatar.email, subject, text, html });
+}
+
+// ─── Cont suspendat — singurul canal prin care firma află motivul, pentru
+//    că un cont suspendat nu se mai poate conecta ca să citească chat-ul. ──
+async function notificaContSuspendat({ destinatar, motiv }) {
+  const subject = 'Contul tău ConstructBid a fost suspendat';
+  const text = `Salut, ${destinatar.nume}!
+
+Contul tău ConstructBid a fost suspendat.${motiv ? `
+
+Motiv: ${motiv}` : ''}
+
+Dacă vrei să clarifici situația, răspunde la acest email.`;
+  const html = wrapHtml('Cont suspendat', `
+      <p>Salut, ${destinatar.nume}!</p>
+      <p>Contul tău ConstructBid a fost suspendat.</p>
+      ${motiv ? `<p style="padding: 12px 16px; background: #f1f5f9; border-radius: 8px;">Motiv: ${motiv}</p>` : ''}
+      <p>Dacă vrei să clarifici situația, răspunde la acest email.</p>`);
+  return trimiteEmailSigur({ to: destinatar.email, subject, text, html });
+}
+
 // ─── Cod de resetare parolă ────────────────────────────────────────────────
 async function trimiteCodResetareParola(email, nume, cod) {
   const subject = 'Codul tău de resetare a parolei — ConstructBid';
@@ -184,4 +221,6 @@ module.exports = {
   notificaOfertaStaticaAcceptata,
   notificaOfertaStaticaRespinsa,
   notificaRaspunsSuport,
+  notificaMesajAdmin,
+  notificaContSuspendat,
 };

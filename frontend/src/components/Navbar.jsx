@@ -1,8 +1,11 @@
-import React from 'react';
-import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard, Send, ShieldAlert, Package } from 'lucide-react';
+import React, { useState } from 'react';
+import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard, Send, ShieldAlert, Package, Menu, X, User } from 'lucide-react';
 
 export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTema, onToggleTema, t, poateOferta, esteDezvoltator, nrNotificariNecitite }) {
   const esteAdmin = user?.rol === 'ADMIN';
+  // Meniul pliat (tabletă/telefon) — vezi regulile .cb-nav-* din index.css
+  const [meniuDeschis, setMeniuDeschis] = useState(false);
+  const mergiLa = (tab) => { setActiveTab(tab); setMeniuDeschis(false); };
   const allMenuItems = [
     { id: 'index', text: 'Acasă', icon: <Building2 size={16} />, always: true },
     { id: 'santiere', text: 'Proiecte Disponibile', icon: <HardHat size={16} />, always: true },
@@ -23,10 +26,10 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
 
   return (
     <header style={{ width: '100%', backgroundColor: t.bgCard, borderBottom: `1px solid ${t.border}`, position: 'sticky', top: 0, zIndex: 100, transition: 'all 0.25s ease', boxShadow: `0 2px 10px ${t.shadow}` }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', height: '68px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="cb-nav-bara" style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', height: '68px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
 
         {/* Brand Logo — colțuri de tip "reper tehnic" pe pictogramă */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setActiveTab('index')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flexShrink: 0 }} onClick={() => mergiLa('index')}>
           <div style={{ position: 'relative', background: t.accentGradient, color: '#ffffff', width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 14px ${t.accentSoft}` }}>
             <Building2 size={17} strokeWidth={2.4} />
             <span style={{ position: 'absolute', top: '-3px', left: '-3px', width: '10px', height: '10px', borderTop: `2px solid ${t.amber}`, borderLeft: `2px solid ${t.amber}`, borderRadius: '3px 0 0 0' }} />
@@ -38,13 +41,14 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
         </div>
 
         {/* Navigare — indicator subliniat, nu fundal */}
-        <nav style={{ display: 'flex', gap: '4px', height: '100%', alignItems: 'center' }}>
+        <nav className="cb-nav-desktop" style={{ display: 'flex', gap: '4px', height: '100%', alignItems: 'center' }}>
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => mergiLa(item.id)}
+                title={item.text}
                 style={{
                   position: 'relative', display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '8px 14px', borderRadius: '8px', border: 'none',
@@ -57,7 +61,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = t.textSecundar; }}
               >
                 {item.icon}
-                {item.text}
+                <span className="cb-nav-text">{item.text}</span>
                 {isActive && (
                   <span style={{ position: 'absolute', left: '14px', right: '14px', bottom: '-14px', height: '2px', backgroundColor: t.amber, borderRadius: '2px' }} />
                 )}
@@ -67,16 +71,17 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
         </nav>
 
         {/* Acțiuni dreapta */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
 
           {/* Toggle temă */}
-          <button onClick={onToggleTema} style={{ background: 'none', border: 'none', color: t.textSecundar, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '8px', backgroundColor: modTema === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', transition: 'all 0.2s' }} title={modTema === 'dark' ? 'Mod Luminos' : 'Mod Întunecat'}>
+          <button className="cb-nav-secundar" onClick={onToggleTema} style={{ background: 'none', border: 'none', color: t.textSecundar, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '8px', backgroundColor: modTema === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', transition: 'all 0.2s' }} title={modTema === 'dark' ? 'Mod Luminos' : 'Mod Întunecat'}>
             {modTema === 'dark' ? <Sun size={18} style={{ color: t.amber }} /> : <Moon size={18} style={{ color: '#475569' }} />}
           </button>
 
           {/* Abonament & tokenuri */}
           <button
-            onClick={() => setActiveTab('abonament')}
+            className="cb-nav-secundar"
+            onClick={() => mergiLa('abonament')}
             title="Abonament & tokenuri"
             style={{
               background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
@@ -91,7 +96,8 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
           {/* Sold token-uri (relevant pentru dezvoltatori, care le consumă la publicare) */}
           {esteDezvoltator && typeof user?.tokenuri === 'number' && (
             <div
-              onClick={() => setActiveTab('abonament')}
+              className="cb-nav-secundar"
+              onClick={() => mergiLa('abonament')}
               title="Token-uri disponibile pentru publicarea de anunțuri — vezi abonamentul"
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
@@ -104,23 +110,24 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
           )}
 
           {/* Notificări */}
-          <button onClick={() => setActiveTab('notificari')} style={{ background: 'none', border: 'none', color: activeTab === 'notificari' ? t.accent : t.textSecundar, cursor: 'pointer', position: 'relative', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }}>
-            <Bell size={20} />
+          <button onClick={() => mergiLa('notificari')} title="Notificări" style={{ background: 'none', border: 'none', color: activeTab === 'notificari' ? t.accent : t.textSecundar, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }}>
+            <Bell size={18} />
             {nrNotificariNecitite > 0 && (
               <span style={{ position: 'absolute', top: '5px', right: '5px', width: '8px', height: '8px', backgroundColor: t.amber, borderRadius: '50%', border: `1.5px solid ${t.bgCard}` }} />
             )}
           </button>
 
           {/* Separator */}
-          <div style={{ width: '1px', height: '28px', backgroundColor: t.border, margin: '0 6px' }} />
+          <div className="cb-nav-secundar" style={{ width: '1px', height: '28px', backgroundColor: t.border, margin: '0 6px' }} />
 
           {/* Profil */}
           <div
-            onClick={() => setActiveTab('profil')}
+            className="cb-nav-secundar"
+            onClick={() => mergiLa('profil')}
             style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', borderRadius: '10px', cursor: 'pointer', backgroundColor: activeTab === 'profil' ? t.accentSoft : 'transparent', transition: 'all 0.2s' }}
             title="Vezi Dashboard & Profil"
           >
-            <div style={{ textAlign: 'right' }}>
+            <div className="cb-nav-profil-text" style={{ textAlign: 'right' }}>
               <div style={{ color: activeTab === 'profil' ? t.accent : t.textPrincipal, fontSize: '13px', fontWeight: '700', lineHeight: '1.2' }}>
                 {user?.nume || 'Compania Ta'}
               </div>
@@ -144,8 +151,51 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
             <LogOut size={16} />
           </button>
 
+          {/* Buton meniu — doar pe ecrane înguste */}
+          <button
+            className="cb-nav-burger"
+            onClick={() => setMeniuDeschis(d => !d)}
+            title="Meniu"
+            aria-expanded={meniuDeschis}
+            style={{ display: 'none', alignItems: 'center', padding: '8px', borderRadius: '8px', border: `1px solid ${t.border}`, background: 'none', color: t.textPrincipal, cursor: 'pointer' }}
+          >
+            {meniuDeschis ? <X size={18} /> : <Menu size={18} />}
+          </button>
+
         </div>
       </div>
+
+      {/* Meniul pliat */}
+      {meniuDeschis && (
+        <nav className="cb-nav-mobil" style={{ borderTop: `1px solid ${t.border}`, backgroundColor: t.bgCard, padding: '8px 12px 12px', display: 'none', flexDirection: 'column', gap: '2px' }}>
+          {[
+            ...menuItems,
+            { id: 'profil', text: user?.nume || 'Profil', icon: <User size={16} /> },
+            { id: 'abonament', text: esteDezvoltator && typeof user?.tokenuri === 'number' ? `Abonament · ${user.tokenuri} tokenuri` : 'Abonament', icon: <CreditCard size={16} /> },
+          ].map(item => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => mergiLa(item.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 12px',
+                  borderRadius: '8px', border: 'none', textAlign: 'left', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                  backgroundColor: isActive ? t.accentSoft : 'transparent', color: isActive ? t.accent : t.textPrincipal,
+                }}
+              >
+                {item.icon} {item.text}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => { onToggleTema(); setMeniuDeschis(false); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 12px', borderRadius: '8px', border: 'none', textAlign: 'left', fontSize: '14px', fontWeight: '600', cursor: 'pointer', backgroundColor: 'transparent', color: t.textPrincipal }}
+          >
+            {modTema === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {modTema === 'dark' ? 'Mod luminos' : 'Mod întunecat'}
+          </button>
+        </nav>
+      )}
     </header>
   );
 }

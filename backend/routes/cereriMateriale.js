@@ -6,6 +6,7 @@ const {
   serializeCerereMateriale, serializeOfertaMateriale, serializeUserContact,
 } = require('../lib/serialize');
 const { creeazaNotificare } = require('../lib/notificari');
+const { notificaAdmini } = require('../lib/moderare');
 const {
   consumaTokenuri, crediteazaTokenuri, EroareTokeniInsuficienti, COSTURI, RECOMPENSE,
 } = require('../lib/tokenEconomie');
@@ -28,7 +29,7 @@ const OFERTA_INCLUDE = {
 router.get('/', protejat, async (req, res) => {
   try {
     const { judet, cauta } = req.query;
-    const where = { status: 'deschisa' };
+    const where = { status: 'deschisa', suspendat: false, creatDe: { suspendat: false } };
     if (judet) where.judet = judet;
     if (cauta) {
       where.OR = [
@@ -200,6 +201,65 @@ router.post('/', protejat, doarRol('DEZVOLTATOR', 'SUBCONTRACTOR'), async (req, 
   }
 });
 
+// ─── PUT /api/cereri-materiale/:id ──────────────────────────────────────────
+// Editarea datelor generale ale cererii (nu și a articolelor, care pot avea
+// deja oferte legate de ele).
+router.put('/:id', protejat, async (req, res) => {
+  try {
+    const cerere = await prisma.cerereMateriale.findUnique({ where: { id: req.params.id } });
+    if (!cerere) return res.status(404).json({ mesaj: 'Cererea nu există.' });
+    if (cerere.creatDeId !== req.utilizator.id) {
+      return res.status(403).json({ mesaj: 'Nu ai permisiunea să editezi această cerere.' });
+    }
+
+    const { titlu, descriere, judet, oras, termenLimita } = req.body;
+    const data = {};
+    if (titlu !== undefined) {
+      if (!String(titlu).trim()) return res.status(400).json({ mesaj: 'Titlul nu poate fi gol.' });
+      data.titlu = String(titlu).trim();
+    }
+    if (descriere !== undefined) data.descriere = String(descriere).trim();
+    if (judet !== undefined) {
+      if (!String(judet).trim()) return res.status(400).json({ mesaj: 'Județul nu poate fi gol.' });
+      data.judet = String(judet).trim();
+    }
+    if (oras !== undefined) data.oras = String(oras).trim();
+    if (termenLimita !== undefined) data.termenLimita = termenLimita ? new Date(termenLimita) : null;
+
+    const actualizata = await prisma.cerereMateriale.update({ where: { id: cerere.id }, data, include: CERERE_INCLUDE });
+    res.json(serializeCerereMateriale(actualizata));
+  } catch (err) {
+    console.error('[cereriMateriale PUT /:id]', err);
+    res.status(500).json({ mesaj: 'Eroare la actualizarea cererii.' });
+  }
+});
+
+// ─── POST /api/cereri-materiale/:id/trimite-modificari ──────────────────────
+router.post('/:id/trimite-modificari', protejat, async (req, res) => {
+  try {
+    const cerere = await prisma.cerereMateriale.findUnique({ where: { id: req.params.id } });
+    if (!cerere) return res.status(404).json({ mesaj: 'Cererea nu există.' });
+    if (cerere.creatDeId !== req.utilizator.id) {
+      return res.status(403).json({ mesaj: 'Nu ai permisiunea să modifici această cerere.' });
+    }
+    if (!cerere.suspendat) return res.status(400).json({ mesaj: 'Cererea nu este suspendată.' });
+
+    const actualizata = await prisma.cerereMateriale.update({
+      where: { id: cerere.id },
+      data: { modificariTrimiseLa: new Date() },
+      include: CERERE_INCLUDE,
+    });
+    notificaAdmini({
+      titlu: 'Modificări trimise spre verificare',
+      mesaj: `${req.utilizator.nume} a modificat cererea de materiale „${actualizata.titlu}”.`,
+    });
+    res.json(serializeCerereMateriale(actualizata));
+  } catch (err) {
+    console.error('[cereriMateriale POST /:id/trimite-modificari]', err);
+    res.status(500).json({ mesaj: 'Eroare la trimiterea modificărilor.' });
+  }
+});
+
 // ─── POST /api/cereri-materiale/:id/anuleaza ────────────────────────────────
 router.post('/:id/anuleaza', protejat, async (req, res) => {
   try {
@@ -243,6 +303,9 @@ router.post('/:id/oferte', protejat, doarRol('FURNIZOR'), async (req, res) => {
     if (!cerere) return res.status(404).json({ mesaj: 'Cererea nu există.' });
     if (cerere.status !== 'deschisa') {
       return res.status(400).json({ mesaj: 'Această cerere nu mai este deschisă pentru oferte.' });
+    }
+    if (cerere.suspendat) {
+      return res.status(403).json({ mesaj: 'Cererea este suspendată temporar de administrator și nu primește oferte.' });
     }
 
     const idArticoleCerere = new Set(cerere.articole.map(a => a.id));
@@ -296,6 +359,7 @@ router.post('/:id/oferte', protejat, doarRol('FURNIZOR'), async (req, res) => {
       tip: 'oferta',
       titlu: `Ai primit o ofertă de materiale de la "${oferta.furnizor.nume}"`,
       mesaj: `Cerere: ${cerere.titlu}`,
+      link: `cerere:${cerere.id}`,
     });
 
     res.status(201).json(serializeOfertaMateriale(oferta));
@@ -397,6 +461,7 @@ router.put('/:id/articole/:articolId/accepta', protejat, async (req, res) => {
       tip: 'castigat',
       titlu: `Oferta ta pentru "${articolCerere.denumire}" a fost acceptată!`,
       mesaj: `Cerere: ${cerere.titlu}`,
+      link: `cerere:${cerere.id}`,
     });
 
     res.json({

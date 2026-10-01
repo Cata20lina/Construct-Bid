@@ -75,9 +75,15 @@ router.post('/', protejat, doarRol('SUBCONTRACTOR'), async (req, res) => {
       return res.status(400).json({ mesaj: 'Valoarea ofertei trebuie sa fie un numar pozitiv.' });
     }
 
-    const proiectExista = await prisma.project.findUnique({ where: { id: proiectId } });
+    const proiectExista = await prisma.project.findUnique({
+      where: { id: proiectId },
+      include: { dezvoltator: { select: { suspendat: true } } },
+    });
     if (!proiectExista) {
       return res.status(404).json({ mesaj: 'Proiectul nu exista.' });
+    }
+    if (proiectExista.suspendat || proiectExista.dezvoltator?.suspendat) {
+      return res.status(403).json({ mesaj: 'Anuntul este suspendat temporar de administrator si nu primeste oferte.' });
     }
 
     if (proiectExista.tipOfertare === 'dinamica') {

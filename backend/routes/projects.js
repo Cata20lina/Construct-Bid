@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
+const jwt = require('jsonwebtoken');
 const { protejat, doarRol } = require('../middleware/auth');
+const { notificaAdmini } = require('../lib/moderare');
 const { programeazaFinalizare } = require('../services/licitatie');
 const { serializeProject } = require('../lib/serialize');
 const { geocodeazaAdresa } = require('../lib/geocode');
@@ -10,6 +12,18 @@ const MINI_SELECT = { id: true, nume: true, judet: true, cui: true };
 
 const COST_ANUNT_NORMAL = 5;
 const COST_ANUNT_PROSPECTARE = 3;
+
+// Lista de proiecte e publică, dar dezvoltatorul trebuie să-și vadă și
+// anunțurile suspendate — așa că citim token-ul dacă există, fără să-l cerem.
+function idUtilizatorOptional(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  try {
+    return jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET).id;
+  } catch {
+    return null;
+  }
+}
 
 // ─── GET /api/projects ────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -21,6 +35,11 @@ router.get('/', async (req, res) => {
     if (judet) where.judet = judet;
     if (tipOfertare) where.tipOfertare = tipOfertare;
     if (req.query.activ !== 'false') where.activ = true;
+
+    const idUtilizator = idUtilizatorOptional(req);
+    where.AND = [{ OR: idUtilizator ? [{ suspendat: false }, { dezvoltatorId: idUtilizator }] : [{ suspendat: false }] }];
+    // Anunțurile unui cont suspendat nu mai apar nimănui
+    where.dezvoltator = { suspendat: false };
 
     // Anunțurile de "prospectare piață" apar DOAR când sunt cerute explicit
     // (pagina Prospectare Piață) — lista normală de șantiere le exclude implicit.
@@ -185,6 +204,8 @@ router.put('/:id', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
       'termenLimitaOferta', 'avansProcent', 'garantii', 'experientaMinima',
     ];
     campuriPermise.forEach(camp => {
+      // Un anunț suspendat de admin se reactivează doar prin aprobarea adminului.
+      if (camp === 'activ' && existent.suspendat) return;
       if (req.body[camp] !== undefined) {
         if (camp === 'deadline' || camp === 'termenLimitaOferta') {
           data[camp] = req.body[camp] ? new Date(req.body[camp]) : null;
@@ -226,6 +247,35 @@ router.put('/:id', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
   } catch (err) {
     console.error('[projects PUT /:id]', err);
     res.status(500).json({ mesaj: 'Eroare la actualizarea proiectului.' });
+  }
+});
+
+// ─── POST /api/projects/:id/trimite-modificari ───────────────────────────────
+// Dezvoltatorul anunță că a corectat un anunț suspendat; adminul îl verifică
+// și îl reactivează (sau îl lasă suspendat cu un mesaj nou).
+router.post('/:id/trimite-modificari', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
+  try {
+    const existent = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!existent) return res.status(404).json({ mesaj: 'Proiectul nu există.' });
+    if (existent.dezvoltatorId !== req.utilizator.id) {
+      return res.status(403).json({ mesaj: 'Nu ai permisiunea să modifici acest proiect.' });
+    }
+    if (!existent.suspendat) return res.status(400).json({ mesaj: 'Proiectul nu este suspendat.' });
+
+    const proiect = await prisma.project.update({
+      where: { id: existent.id },
+      data: { modificariTrimiseLa: new Date() },
+      include: { dezvoltator: { select: MINI_SELECT }, castigator: { select: MINI_SELECT }, _count: { select: { oferte: true } } },
+    });
+    notificaAdmini({
+      titlu: 'Modificări trimise spre verificare',
+      mesaj: `${req.utilizator.nume} a modificat proiectul „${proiect.titlu}”.`,
+      proiectId: proiect.id,
+    });
+    res.json(serializeProject(proiect));
+  } catch (err) {
+    console.error('[projects POST /:id/trimite-modificari]', err);
+    res.status(500).json({ mesaj: 'Eroare la trimiterea modificărilor.' });
   }
 });
 
