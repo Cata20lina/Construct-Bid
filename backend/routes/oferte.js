@@ -60,6 +60,8 @@ router.get('/ale-mele', protejat, doarRol('SUBCONTRACTOR'), async (req, res) => 
 });
 
 // ─── POST /api/oferte ──────────────────────────────────────────────────────────
+// Proiectele sunt licitații de EXECUȚIE — doar subcontractorii pot oferta.
+// Furnizorii (materiale/echipamente) au propriul flux, în routes/cereriMateriale.js.
 router.post('/', protejat, doarRol('SUBCONTRACTOR'), async (req, res) => {
   try {
     const { proiect: proiectId, valoare, moneda, descriere, termenExecutie, documente } = req.body;

@@ -1,3 +1,5 @@
+const jwt = require('jsonwebtoken');
+
 let ioInstance = null;
 
 /**
@@ -21,13 +23,32 @@ function initSockets(server, corsOptions) {
     });
 
     // Camera personală a utilizatorului — folosită pentru push live de
-    // notificări (vezi lib/notificari.js), indiferent ce proiect vizitează.
-    socket.on('join_user', (userId) => {
-      if (userId) socket.join(`user_${userId}`);
+    // notificări (vezi lib/notificari.js) și răspunsurile de la suport,
+    // indiferent ce proiect vizitează. ID-ul se ia din token-ul JWT, nu din
+    // ce trimite clientul, ca nimeni să nu poată asculta camera altcuiva.
+    socket.on('join_user', (token) => {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.join(`user_${decoded.id}`);
+      } catch (e) { /* token invalid - ignoram */ }
     });
 
-    socket.on('leave_user', (userId) => {
-      if (userId) socket.leave(`user_${userId}`);
+    socket.on('leave_user', () => {
+      [...socket.rooms].filter(r => r.startsWith('user_')).forEach(r => socket.leave(r));
+    });
+
+    // Camera echipei de suport — primește mesajele noi din chat-ul de suport.
+    // Spre deosebire de celelalte camere, cere token-ul JWT și rolul ADMIN,
+    // pentru că mesajele de suport pot conține date private ale utilizatorilor.
+    socket.on('join_suport_admin', (token) => {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.rol === 'ADMIN') socket.join('suport_admin');
+      } catch (e) { /* token invalid - ignoram */ }
+    });
+
+    socket.on('leave_suport_admin', () => {
+      socket.leave('suport_admin');
     });
   });
 

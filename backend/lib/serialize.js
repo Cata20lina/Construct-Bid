@@ -5,7 +5,11 @@
 
 function serializeLucrare(l) {
   if (!l) return l;
-  return { _id: l.id, titlu: l.titlu, descriere: l.descriere, an: l.an, categorie: l.categorie, createdAt: l.createdAt };
+  return {
+    _id: l.id, titlu: l.titlu, descriere: l.descriere, an: l.an, categorie: l.categorie,
+    pret: l.pret ?? null, unitateMasura: l.unitateMasura || '',
+    createdAt: l.createdAt,
+  };
 }
 
 function serializeDisponibilitate(d) {
@@ -23,6 +27,20 @@ function serializeRecomandare(r) {
     documentNume: r.documentNume || '',
     descriere: r.descriere || '',
     createdAt: r.createdAt,
+  };
+}
+
+// Situație financiară (bilanț ANAF) — null dacă nu a fost încă verificată sau
+// dacă firma nu are niciun bilanț depus găsit.
+function serializeBilant(u) {
+  if (!u || !u.bilantVerificatLa) return null;
+  return {
+    an: u.bilantAn ?? null,
+    cifraAfaceri: u.bilantCifraAfaceri ?? null,
+    profitNet: u.bilantProfitNet ?? null,
+    pierdereNeta: u.bilantPierdereNeta ?? null,
+    numarAngajati: u.bilantNumarAngajati ?? null,
+    verificatLa: u.bilantVerificatLa,
   };
 }
 
@@ -62,6 +80,7 @@ function serializeUserFull(u) {
     recomandari: (u.recomandari || []).map(serializeRecomandare),
     cuiVerificat: u.cuiVerificat || false,
     cuiDenumireOficiala: u.cuiDenumireOficiala || '',
+    bilant: serializeBilant(u),
     tokenuri: typeof u.tokenuri === 'number' ? u.tokenuri : 0,
     planAbonament: u.planAbonament || 'GRATUIT',
     siteWeb: u.siteWeb || '',
@@ -76,6 +95,7 @@ function serializeUserPublic(u) {
   return {
     _id: u.id,
     nume: u.nume,
+    rol: u.rol,
     judet: u.judet,
     cui: u.cui,
     aniExperienta: u.aniExperienta ?? null,
@@ -90,6 +110,32 @@ function serializeUserPublic(u) {
     disponibilitate: u.disponibilitati ? u.disponibilitati.map(serializeDisponibilitate) : [],
     recomandari: u.recomandari ? u.recomandari.map(serializeRecomandare) : [],
     verificat: u.verificat,
+    cuiVerificat: u.cuiVerificat || false,
+    bilant: serializeBilant(u),
+  };
+}
+
+// Vedere pentru panoul de admin — mai completă decât cea publică (email,
+// telefon, status suspendare), dar tot fără parolă.
+function serializeUserAdmin(u) {
+  if (!u) return u;
+  return {
+    _id: u.id,
+    nume: u.nume,
+    email: u.email,
+    rol: u.rol,
+    judet: u.judet,
+    cui: u.cui,
+    telefon: u.telefon,
+    verificat: u.verificat,
+    cuiVerificat: u.cuiVerificat || false,
+    suspendat: u.suspendat || false,
+    suspendatMotiv: u.suspendatMotiv || '',
+    tokenuri: typeof u.tokenuri === 'number' ? u.tokenuri : 0,
+    planAbonament: u.planAbonament || 'GRATUIT',
+    ratingMediu: typeof u.ratingMediu === 'number' ? u.ratingMediu : 0,
+    ratingNumarEvaluari: typeof u.ratingNumarEvaluari === 'number' ? u.ratingNumarEvaluari : 0,
+    createdAt: u.createdAt,
   };
 }
 
@@ -148,6 +194,10 @@ function serializeProject(p) {
     deadline: p.deadline,
     categorie: p.categorie,
     esteProspectare: !!p.esteProspectare,
+    termenLimitaOferta: p.termenLimitaOferta,
+    avansProcent: p.avansProcent,
+    garantii: p.garantii || '',
+    experientaMinima: p.experientaMinima || '',
     dezvoltator: p.dezvoltator ? serializeUserMini(p.dezvoltator) : p.dezvoltatorId,
     activ: p.activ,
     tipOfertare: p.tipOfertare,
@@ -160,17 +210,6 @@ function serializeProject(p) {
     licitatieActiva,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
-  };
-}
-
-function serializeMesaj(m) {
-  if (!m) return m;
-  return {
-    _id: m.id,
-    proiect: m.proiectId,
-    expeditor: m.expeditor ? { _id: m.expeditor.id, nume: m.expeditor.nume, rol: m.expeditor.rol } : m.expeditorId,
-    text: m.text,
-    createdAt: m.createdAt,
   };
 }
 
@@ -192,17 +231,194 @@ function serializeNotificare(n) {
   };
 }
 
+// Clarificare (întrebare publică + răspuns opțional de la dezvoltator)
+function serializeClarificare(c) {
+  if (!c) return c;
+  return {
+    _id: c.id,
+    intrebare: c.intrebare,
+    raspuns: c.raspuns || null,
+    raspunsLa: c.raspunsLa || null,
+    proiectId: c.proiectId,
+    autor: c.autor ? serializeUserMini(c.autor) : c.autorId,
+    createdAt: c.createdAt,
+  };
+}
+
+// Reclamație (raportare problemă) — pentru utilizatorul care a depus-o și
+// pentru admin (care vede și partea raportată).
+function serializeReclamatie(r) {
+  if (!r) return r;
+  return {
+    _id: r.id,
+    motiv: r.motiv,
+    descriere: r.descriere || '',
+    status: r.status,
+    raspunsAdmin: r.raspunsAdmin || '',
+    proiectId: r.proiectId || null,
+    ofertaId: r.ofertaId || null,
+    raportatDe: r.raportatDe ? serializeUserMini(r.raportatDe) : r.raportatDeId,
+    raportatImpotriva: r.raportatImpotriva ? serializeUserMini(r.raportatImpotriva) : (r.raportatImpotrivaId || null),
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
+// ═══ Chat de suport ═══════════════════════════════════════════════════
+
+function serializeMesajSuport(m) {
+  if (!m) return m;
+  return {
+    _id: m.id,
+    conversatie: m.conversatieId,
+    text: m.text,
+    deLaSuport: m.deLaSuport,
+    autor: m.autor ? { _id: m.autor.id, nume: m.autor.nume } : m.autorId,
+    createdAt: m.createdAt,
+  };
+}
+
+// Pentru lista din panoul de admin: `ultimulMesaj` și `necitite` sunt
+// calculate de rută și atașate pe obiect înainte de serializare.
+function serializeConversatieSuport(c) {
+  if (!c) return c;
+  return {
+    _id: c.id,
+    status: c.status,
+    user: c.user ? { _id: c.user.id, nume: c.user.nume, email: c.user.email, rol: c.user.rol } : c.userId,
+    ultimulMesaj: c.ultimulMesaj ? serializeMesajSuport(c.ultimulMesaj) : null,
+    necitite: c.necitite ?? 0,
+    ultimulMesajLa: c.ultimulMesajLa,
+    createdAt: c.createdAt,
+  };
+}
+
+// ═══ Cereri de materiale ═══════════════════════════════════════════════
+
+function serializeOfertaArticol(oa) {
+  if (!oa) return oa;
+  return {
+    _id: oa.id,
+    cerereArticolId: oa.cerereArticolId,
+    pretUnitar: oa.pretUnitar,
+    cantitateOfertata: oa.cantitateOfertata ?? null,
+    acceptat: oa.acceptat,
+    createdAt: oa.createdAt,
+  };
+}
+
+function serializeOfertaMateriale(o) {
+  if (!o) return o;
+  return {
+    _id: o.id,
+    cerereId: o.cerereId,
+    furnizor: o.furnizor ? serializeUserPublic(o.furnizor) : o.furnizorId,
+    mesaj: o.mesaj || '',
+    termenLivrare: o.termenLivrare,
+    activa: o.activa,
+    articole: (o.articole || []).map(serializeOfertaArticol),
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+  };
+}
+
+function serializeCerereArticol(a) {
+  if (!a) return a;
+  return {
+    _id: a.id,
+    denumire: a.denumire,
+    cantitate: a.cantitate,
+    unitateMasura: a.unitateMasura,
+    specificatii: a.specificatii || '',
+    ofertaArticolCastigatoareId: a.ofertaArticolCastigatoareId || null,
+    createdAt: a.createdAt,
+  };
+}
+
+function serializeCerereMateriale(c) {
+  if (!c) return c;
+  return {
+    _id: c.id,
+    titlu: c.titlu,
+    descriere: c.descriere || '',
+    judet: c.judet,
+    oras: c.oras || '',
+    termenLimita: c.termenLimita || null,
+    status: c.status,
+    proiect: c.proiect ? serializeProject(c.proiect) : (c.proiectId || null),
+    creatDe: c.creatDe ? serializeUserMini(c.creatDe) : c.creatDeId,
+    articole: (c.articole || []).map(serializeCerereArticol),
+    numarOferte: typeof c._count?.oferte === 'number' ? c._count.oferte : undefined,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+
+// Produs de catalog — reutilizează Lucrare (deja are pret/unitateMasura
+// pentru FURNIZOR), afișat public cu info minimă despre furnizor.
+function serializeCatalogItem(l) {
+  if (!l) return l;
+  return {
+    _id: l.id,
+    titlu: l.titlu,
+    descriere: l.descriere || '',
+    categorie: l.categorie || '',
+    pret: l.pret ?? null,
+    unitateMasura: l.unitateMasura || '',
+    furnizor: l.user ? {
+      _id: l.user.id,
+      nume: l.user.nume,
+      judet: l.user.judet,
+      judeteServicii: l.user.judeteServicii || [],
+      ratingMediu: typeof l.user.ratingMediu === 'number' ? l.user.ratingMediu : 0,
+      ratingNumarEvaluari: typeof l.user.ratingNumarEvaluari === 'number' ? l.user.ratingNumarEvaluari : 0,
+      cuiVerificat: l.user.cuiVerificat || false,
+    } : l.userId,
+    createdAt: l.createdAt,
+  };
+}
+
+// Comandă directă din catalog — vizibilă cumpărătorului și furnizorului.
+function serializeComandaCatalog(c) {
+  if (!c) return c;
+  return {
+    _id: c.id,
+    denumireProdus: c.denumireProdus,
+    pretUnitar: c.pretUnitar,
+    unitateMasura: c.unitateMasura,
+    cantitate: c.cantitate,
+    mesaj: c.mesaj || '',
+    status: c.status,
+    motivRefuz: c.motivRefuz || '',
+    produsId: c.produsId || null,
+    cumparator: c.cumparator ? serializeUserMini(c.cumparator) : c.cumparatorId,
+    furnizor: c.furnizor ? serializeUserMini(c.furnizor) : c.furnizorId,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+
 module.exports = {
   serializeLucrare,
+  serializeReclamatie,
+  serializeMesajSuport,
+  serializeConversatieSuport,
   serializeDisponibilitate,
   serializeRecomandare,
   serializeEvaluare,
   serializeUserFull,
   serializeUserPublic,
+  serializeUserAdmin,
   serializeUserMini,
   serializeUserContact,
   serializeOferta,
   serializeProject,
-  serializeMesaj,
   serializeNotificare,
+  serializeClarificare,
+  serializeCerereMateriale,
+  serializeCerereArticol,
+  serializeOfertaMateriale,
+  serializeOfertaArticol,
+  serializeCatalogItem,
+  serializeComandaCatalog,
 };

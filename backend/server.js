@@ -12,10 +12,16 @@ const ofertaRoutes = require('./routes/oferte');
 const uploadRoutes = require('./routes/upload');
 const cuiRoutes = require('./routes/cui');
 const utileRoutes = require('./routes/utile');
-const chatRoutes = require('./routes/chat');
 const notificariRoutes = require('./routes/notificari');
 const prospectareRoutes = require('./routes/prospectare');
 const tokenuriRoutes = require('./routes/tokenuri');
+const { manipuleazaWebhookStripe } = require('./routes/tokenuri');
+const clarificariRoutes = require('./routes/clarificari');
+const reclamatiiRoutes = require('./routes/reclamatii');
+const suportRoutes = require('./routes/suport');
+const adminRoutes = require('./routes/admin');
+const cereriMaterialeRoutes = require('./routes/cereriMateriale');
+const catalogRoutes = require('./routes/catalog');
 
 const { initSockets } = require('./sockets');
 const { reporneșteTimerele } = require('./services/licitatie');
@@ -36,6 +42,13 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
+
+// ── Webhook Stripe — MONTAT ÎNAINTE de express.json(), cu body RAW.
+//    Stripe verifică semnătura pe bytes-ul exact al body-ului; dacă am lăsa
+//    express.json() să-l parseze mai întâi, verificarea de semnătură ar eșua
+//    mereu. De asta ruta asta nu trece prin router-ul normal de tokenuri. ──
+app.post('/api/tokenuri/webhook-stripe', express.raw({ type: 'application/json' }), manipuleazaWebhookStripe);
+
 app.use(express.json());
 
 // Fișierele atașate la oferte (documente, PDF-uri etc.) sunt servite static
@@ -45,13 +58,18 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/oferte', ofertaRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/cui', cuiRoutes);
 app.use('/api/utile', utileRoutes);
 app.use('/api/notificari', notificariRoutes);
 app.use('/api/prospectare', prospectareRoutes);
 app.use('/api/tokenuri', tokenuriRoutes);
+app.use('/api/clarificari', clarificariRoutes);
+app.use('/api/reclamatii', reclamatiiRoutes);
+app.use('/api/suport', suportRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/cereri-materiale', cereriMaterialeRoutes);
+app.use('/api/catalog', catalogRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));

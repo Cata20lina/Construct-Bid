@@ -16,19 +16,38 @@ const CATEGORII_SERVICII = [
 
 const JUDETE = ['București', 'Cluj', 'Timiș', 'Constanța', 'Iași', 'Brașov'];
 
+// ── Categorii pentru profilul de FURNIZOR — refolosesc aceleași câmpuri din
+//    baza de date (categoriiServicii/judeteServicii) cu alt sens: materiale/
+//    echipamente livrate, respectiv zone de livrare acoperite. ──
+const CATEGORII_MATERIALE = [
+  { value: 'Materiale de construcții', label: 'Materiale de Construcții', icon: <Layers size={15} />,      color: '#2F6FED' },
+  { value: 'Instalații',               label: 'Materiale Instalații',    icon: <Wrench size={15} />,      color: '#f59e0b' },
+  { value: 'Electrice',                label: 'Materiale Electrice',     icon: <Zap size={15} />,          color: '#a855f7' },
+  { value: 'Finisaje',                 label: 'Materiale Finisaje',      icon: <Paintbrush2 size={15} />, color: '#10b981' },
+  { value: 'Echipamente',              label: 'Echipamente & Utilaje',   icon: <Hammer size={15} />,      color: '#ef4444' },
+];
+
 export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], setActiveTab, setUser, setProiectSelectat }) {
   const esteSubcontractor = user?.rol === 'SUBCONTRACTOR';
+  const esteFurnizor = user?.rol === 'FURNIZOR';
+  // Furnizorul are aceleași drepturi de ofertare ca subcontractorul (licitează
+  // pe proiecte, doar că pentru materiale în loc de manoperă), deci orice
+  // secțiune legată de "a oferta" trebuie să includă ambele roluri.
+  const poateOferta = esteSubcontractor || esteFurnizor;
+  // Cardurile de "profil de specialitate" (servicii/materiale, portofoliu,
+  // recomandări, rating) sunt comune subcontractorului și furnizorului —
+  const arataProfilExtins = poateOferta;
   const userId = user?.id || user?._id;
 
   const proiecteleMele = proiecte.filter(p => p.dezvoltator?._id === userId);
   const totalOferteIntrate = proiecte.reduce((acc, p) => acc + (p.oferte || 0), 0);
   const totalLicitatValoare = oferteleMele.reduce((acc, o) => acc + Number(o.valoare || 0), 0);
 
-  const statistici = esteSubcontractor
+  const statistici = poateOferta
     ? [
         { titlu: 'Oferte depuse', valoare: oferteleMele.length, icon: <Send size={18} />, color: '#2F6FED', bg: 'rgba(47,111,237,0.1)' },
         { titlu: 'Valoare ofertată', valoare: `${totalLicitatValoare.toLocaleString()} RON`, icon: <TrendingUp size={18} />, color: '#eab308', bg: 'rgba(234,179,8,0.1)' },
-        { titlu: 'Scor de încredere', valoare: '4.8', icon: <Star size={18} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+        { titlu: 'Scor de încredere', valoare: user?.ratingNumarEvaluari ? user.ratingMediu.toFixed(1) : '—', icon: <Star size={18} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
       ]
     : [
         { titlu: 'Proiecte publicate', valoare: proiecteleMele.length, icon: <FolderKanban size={18} />, color: '#2F6FED', bg: 'rgba(47,111,237,0.1)' },
@@ -67,14 +86,18 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
             <div>
               <h2 style={{ fontSize: '22px', fontWeight: '800', color: t.textPrincipal, margin: '0 0 6px' }}>{user?.nume}</h2>
               <p style={{ fontSize: '13px', color: t.textSecundar, margin: 0 }}>
-                {esteSubcontractor ? 'Firmă de execuție / subcontractor specializat' : 'Dezvoltator imobiliar — entitate juridică înregistrată'}
+                {esteSubcontractor
+                  ? 'Firmă de execuție / subcontractor specializat'
+                  : esteFurnizor
+                  ? 'Furnizor de materiale și echipamente pentru construcții'
+                  : 'Dezvoltator imobiliar — entitate juridică înregistrată'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{
                 fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px',
-                backgroundColor: esteSubcontractor ? 'rgba(47,111,237,0.1)' : 'rgba(168,85,247,0.1)',
-                color: esteSubcontractor ? '#2F6FED' : '#a855f7',
+                backgroundColor: esteSubcontractor ? 'rgba(47,111,237,0.1)' : esteFurnizor ? 'rgba(255,158,44,0.1)' : 'rgba(168,85,247,0.1)',
+                color: esteSubcontractor ? '#2F6FED' : esteFurnizor ? '#FF9E2C' : '#a855f7',
                 padding: '5px 12px', borderRadius: '8px', textTransform: 'uppercase',
               }}>
                 {user?.rol}
@@ -117,22 +140,50 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
       </div>
 
       {/* ── Secțiune specifică rolului ── */}
-      {esteSubcontractor
-        ? <ServiciiProfilCard t={t} user={user} setUser={setUser} />
-        : <ProiecteleMeleCard t={t} proiecte={proiecteleMele} setActiveTab={setActiveTab} setProiectSelectat={setProiectSelectat} />
-      }
+      {esteSubcontractor ? (
+        <ServiciiProfilCard t={t} user={user} setUser={setUser} />
+      ) : esteFurnizor ? (
+        <ServiciiProfilCard
+          t={t} user={user} setUser={setUser}
+          titlu="Materialele Mele — Profil Furnizor"
+          categoriiOptiuni={CATEGORII_MATERIALE}
+          etichetaCategorii="Categorii de materiale/echipamente"
+          etichetaZone="Zone de livrare"
+          textGolCategorii="Nu ai selectat încă ce materiale sau echipamente furnizezi."
+          textGolZone="Nu ai selectat încă zonele în care livrezi."
+          textGolDescriere="Adaugă o scurtă prezentare a firmei, gamei de produse și a certificărilor tale."
+        />
+      ) : (
+        <ProiecteleMeleCard t={t} proiecte={proiecteleMele} setActiveTab={setActiveTab} setProiectSelectat={setProiectSelectat} />
+      )}
 
-      {/* ── Portofoliu de lucrări + disponibilitate — doar SUBCONTRACTOR ── */}
-      {esteSubcontractor && <PortofoliuCard t={t} user={user} setUser={setUser} />}
-      {esteSubcontractor && <RecomandariCard t={t} user={user} setUser={setUser} />}
-      {esteSubcontractor && <RatingCard t={t} user={user} />}
-      {esteSubcontractor && <DisponibilitateCard t={t} user={user} setUser={setUser} />}
+      {/* ── Portofoliu (lucrări / catalog) + recomandări + rating — SUBCONTRACTOR și FURNIZOR ── */}
+      {arataProfilExtins && (
+        <PortofoliuCard
+          t={t} user={user} setUser={setUser}
+          esteFurnizor={esteFurnizor}
+          titlu={esteFurnizor ? 'Catalog Produse' : undefined}
+          textButonAdauga={esteFurnizor ? 'Adaugă produs' : undefined}
+          textGol={esteFurnizor ? 'Nu ai adăugat încă niciun produs în catalog. Un catalog complet, cu prețuri, crește șansele de a câștiga oferte de materiale.' : undefined}
+          etichetaTitlu={esteFurnizor ? 'Denumire produs (ex: Ciment Portland CEM II 42.5R, sac 40kg)' : undefined}
+          categoriiOptiuni={esteFurnizor ? CATEGORII_MATERIALE : CATEGORII_SERVICII}
+        />
+      )}
+      {arataProfilExtins && (
+        <RecomandariCard
+          t={t} user={user} setUser={setUser}
+          categoriiOptiuni={esteFurnizor ? CATEGORII_MATERIALE : CATEGORII_SERVICII}
+        />
+      )}
+      {arataProfilExtins && <RatingCard t={t} user={user} />}
+      {/* ── Disponibilitate — relevantă doar pentru manoperă (SUBCONTRACTOR) ── */}
+      {poateOferta && <DisponibilitateCard t={t} user={user} setUser={setUser} esteFurnizor={esteFurnizor} />}
 
       {/* ── Oferte câștigate — date de contact ale beneficiarului ── */}
-      {esteSubcontractor && <OferteCastigateCard t={t} oferteleMele={oferteleMele} />}
+      {poateOferta && <OferteCastigateCard t={t} oferteleMele={oferteleMele} />}
 
-      {/* ── Activitate recentă: oferte pentru subcontractor ── */}
-      {esteSubcontractor && (
+      {/* ── Activitate recentă: oferte pentru orice ofertant (subcontractor/furnizor) ── */}
+      {poateOferta && (
         <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
           <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar }}>
             Ofertele Tale Recente
@@ -148,7 +199,7 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
                       <div style={{ fontWeight: '700', fontSize: '13px', color: t.textPrincipal }}>
                         {o.proiect?.titlu || 'Proiect'} — <span style={{ color: '#10b981' }}>{Number(o.valoare).toLocaleString()} {o.moneda}</span>
                       </div>
-                      <div style={{ fontSize: '12px', color: t.textSecundar, marginTop: '2px' }}>Execuție: {o.termenExecutie} zile</div>
+                      <div style={{ fontSize: '12px', color: t.textSecundar, marginTop: '2px' }}>Termen: {o.termenExecutie} zile</div>
                     </div>
                     <StatusPill status={o.status} />
                   </div>
@@ -197,8 +248,15 @@ function StatusContCard({ t, user, setUser, setActiveTab }) {
     setMesajRetrimitere('');
     setSeRetrimite(true);
     try {
-      await apiRetrimiteCodVerificare();
-      setMesajRetrimitere('Cod nou trimis pe email.');
+      const data = await apiRetrimiteCodVerificare();
+      // Codul e mereu generat, dar dacă trimiterea emailului a eșuat (SMTP
+      // căzut, rețea etc.), serverul ne spune explicit — afișăm mesajul
+      // real în loc să pretindem că a plecat cu succes.
+      if (data?.emailTrimis === false) {
+        setEroare(data.mesaj || 'Codul a fost generat, dar emailul nu a putut fi trimis.');
+      } else {
+        setMesajRetrimitere(data?.mesaj || 'Cod nou trimis pe email.');
+      }
     } catch (err) {
       setEroare(err.message || 'Nu am putut retrimite codul.');
     } finally {
@@ -294,6 +352,39 @@ function StatusContCard({ t, user, setUser, setActiveTab }) {
         </button>
       </div>
       {cuiEroare && <div style={{ fontSize: '12.5px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={13} /> {cuiEroare}</div>}
+
+      {user?.bilant && (
+        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: '14px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', marginBottom: '10px' }}>
+            Situație financiară (bilanț {user.bilant.an}, ANAF)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: t.textSecundar }}>Cifră de afaceri</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>
+                {user.bilant.cifraAfaceri != null ? `${Number(user.bilant.cifraAfaceri).toLocaleString()} RON` : '—'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: t.textSecundar }}>{user.bilant.profitNet ? 'Profit net' : 'Pierdere netă'}</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: (user.bilant.profitNet || 0) > 0 ? '#10b981' : '#f87171' }}>
+                {(user.bilant.profitNet || user.bilant.pierdereNeta) != null
+                  ? `${Number(user.bilant.profitNet || user.bilant.pierdereNeta || 0).toLocaleString()} RON`
+                  : '—'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: t.textSecundar }}>Angajați</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>
+                {user.bilant.numarAngajati ?? '—'}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '11px', color: t.textSecundar, marginTop: '8px' }}>
+            Preluat automat de la ANAF, vizibil public pe profilul firmei tale.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -341,7 +432,16 @@ function ProiecteleMeleCard({ t, proiecte, setActiveTab, setProiectSelectat }) {
 // servicii (categorii executate, zone de activitate, descriere firmă),
 // nu un loc unde se mai postează anunțuri separate.
 // ─────────────────────────────────────────────────────────────────────────
-function ServiciiProfilCard({ t, user, setUser }) {
+function ServiciiProfilCard({
+  t, user, setUser,
+  titlu = 'Serviciile Mele — Profil de Specialitate',
+  categoriiOptiuni = CATEGORII_SERVICII,
+  etichetaCategorii = 'Categorii de specialitate',
+  etichetaZone = 'Județe de activitate',
+  textGolCategorii = 'Nu ai selectat încă lucrările pe care le execuți.',
+  textGolZone = 'Nu ai selectat încă zonele unde lucrezi.',
+  textGolDescriere = 'Adaugă o scurtă prezentare a echipei, utilajelor și certificărilor tale.',
+}) {
   const [editare, setEditare] = useState(false);
   const [salvand, setSalvand] = useState(false);
   const [eroare, setEroare] = useState('');
@@ -424,7 +524,7 @@ function ServiciiProfilCard({ t, user, setUser }) {
     <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar }}>
-          Serviciile Mele — Profil de Specialitate
+          {titlu}
         </span>
         {!editare && (
           <button
@@ -447,13 +547,13 @@ function ServiciiProfilCard({ t, user, setUser }) {
           // ── Vizualizare ──
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <div style={labelStyle}><Star size={12} /> Categorii de specialitate</div>
+              <div style={labelStyle}><Star size={12} /> {etichetaCategorii}</div>
               {categoriiActive.length === 0 ? (
-                <EmptyHint t={t} text="Nu ai selectat încă lucrările pe care le execuți." />
+                <EmptyHint t={t} text={textGolCategorii} />
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {categoriiActive.map(val => {
-                    const cat = CATEGORII_SERVICII.find(c => c.value === val);
+                    const cat = categoriiOptiuni.find(c => c.value === val);
                     return (
                       <span key={val} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', padding: '6px 12px', borderRadius: '20px', backgroundColor: cat ? `${cat.color}15` : t.bgInput, color: cat ? cat.color : t.textSecundar }}>
                         {cat?.icon} {cat?.label || val}
@@ -465,9 +565,9 @@ function ServiciiProfilCard({ t, user, setUser }) {
             </div>
 
             <div>
-              <div style={labelStyle}><MapPin size={12} /> Județe de activitate</div>
+              <div style={labelStyle}><MapPin size={12} /> {etichetaZone}</div>
               {judeteActive.length === 0 ? (
-                <EmptyHint t={t} text="Nu ai selectat încă zonele unde lucrezi." />
+                <EmptyHint t={t} text={textGolZone} />
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {judeteActive.map(j => (
@@ -503,7 +603,7 @@ function ServiciiProfilCard({ t, user, setUser }) {
               {user?.descriere ? (
                 <p style={{ fontSize: '14px', color: t.textPrincipal, lineHeight: '1.65', margin: 0 }}>{user.descriere}</p>
               ) : (
-                <EmptyHint t={t} text="Adaugă o scurtă prezentare a echipei, utilajelor și certificărilor tale." />
+                <EmptyHint t={t} text={textGolDescriere} />
               )}
             </div>
           </div>
@@ -511,9 +611,9 @@ function ServiciiProfilCard({ t, user, setUser }) {
           // ── Editare ──
           <form onSubmit={salveaza} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <div style={labelStyle}><Star size={12} /> Categorii de specialitate</div>
+              <div style={labelStyle}><Star size={12} /> {etichetaCategorii}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                {CATEGORII_SERVICII.map(cat => {
+                {categoriiOptiuni.map(cat => {
                   const activ = form.categoriiServicii.includes(cat.value);
                   return (
                     <button
@@ -537,7 +637,7 @@ function ServiciiProfilCard({ t, user, setUser }) {
             </div>
 
             <div>
-              <div style={labelStyle}><MapPin size={12} /> Județe de activitate</div>
+              <div style={labelStyle}><MapPin size={12} /> {etichetaZone}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {JUDETE.map(j => {
                   const activ = form.judeteServicii.includes(j);
@@ -659,9 +759,22 @@ function EmptyHint({ t, text }) {
 // Card "Portofoliu" — lucrări realizate de subcontractor. Public, vizibil
 // dezvoltatorilor pe oferta trimisă (OfertaDetailView), ajută la evaluare.
 // ─────────────────────────────────────────────────────────────────────────
-function PortofoliuCard({ t, user, setUser }) {
+const UNITATI_MASURA = ['buc', 'kg', 'tonă', 'm', 'm²', 'm³', 'l', 'set'];
+
+function PortofoliuCard({
+  t, user, setUser,
+  titlu = 'Portofoliu — Lucrări Realizate',
+  textButonAdauga = 'Adaugă lucrare',
+  textGol = 'Nu ai adăugat încă nicio lucrare. Un portofoliu complet crește șansele de a câștiga oferte.',
+  etichetaTitlu = 'Titlu lucrare (ex: Hală industrială 2.000mp)',
+  categoriiOptiuni = CATEGORII_SERVICII,
+  esteFurnizor = false,
+}) {
   const [formDeschis, setFormDeschis] = useState(false);
-  const [form, setForm] = useState({ titlu: '', descriere: '', an: '', categorie: 'Structuri' });
+  const [form, setForm] = useState({
+    titlu: '', descriere: '', an: '', categorie: categoriiOptiuni[0]?.value || '',
+    pret: '', unitateMasura: UNITATI_MASURA[0],
+  });
   const [salvand, setSalvand] = useState(false);
   const [eroare, setEroare] = useState('');
   const [stergandId, setStergandId] = useState(null);
@@ -677,13 +790,14 @@ function PortofoliuCard({ t, user, setUser }) {
 
   const adauga = async (e) => {
     e.preventDefault();
-    if (!form.titlu.trim()) { setEroare('Titlul lucrării este obligatoriu.'); return; }
+    if (!form.titlu.trim()) { setEroare(esteFurnizor ? 'Denumirea produsului este obligatorie.' : 'Titlul lucrării este obligatoriu.'); return; }
+    if (esteFurnizor && (form.pret === '' || Number(form.pret) <= 0)) { setEroare('Prețul trebuie să fie un număr pozitiv.'); return; }
     setSalvand(true);
     setEroare('');
     try {
       const { utilizator } = await apiAdaugaLucrare(form);
       setUser(prev => ({ ...prev, ...utilizator }));
-      setForm({ titlu: '', descriere: '', an: '', categorie: 'Structuri' });
+      setForm({ titlu: '', descriere: '', an: '', categorie: categoriiOptiuni[0]?.value || '', pret: '', unitateMasura: UNITATI_MASURA[0] });
       setFormDeschis(false);
     } catch (err) {
       setEroare(err.message || 'Nu am putut salva lucrarea.');
@@ -708,11 +822,11 @@ function PortofoliuCard({ t, user, setUser }) {
     <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar }}>
-          <Hammer size={13} /> Portofoliu — Lucrări Realizate
+          <Hammer size={13} /> {titlu}
         </span>
         {!formDeschis && (
           <button onClick={() => setFormDeschis(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: `1px solid ${t.border}`, color: t.accent || '#2F6FED', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
-            <Plus size={12} /> Adaugă lucrare
+            <Plus size={12} /> {textButonAdauga}
           </button>
         )}
       </div>
@@ -720,14 +834,26 @@ function PortofoliuCard({ t, user, setUser }) {
       <div style={{ padding: '20px 24px' }}>
         {formDeschis && (
           <form onSubmit={adauga} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: lucrari.length ? '18px' : 0, padding: '16px', borderRadius: '12px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '10px' }}>
-              <input placeholder="Titlu lucrare (ex: Hală industrială 2.000mp)" value={form.titlu} onChange={e => setForm({ ...form, titlu: e.target.value })} style={inputStyle} />
-              <input type="number" placeholder="An" value={form.an} onChange={e => setForm({ ...form, an: e.target.value })} style={inputStyle} />
-            </div>
+            {esteFurnizor ? (
+              <>
+                <input placeholder={etichetaTitlu} value={form.titlu} onChange={e => setForm({ ...form, titlu: e.target.value })} style={inputStyle} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '10px' }}>
+                  <input type="number" min="0" step="0.01" placeholder="Preț (RON)" value={form.pret} onChange={e => setForm({ ...form, pret: e.target.value })} style={inputStyle} />
+                  <select value={form.unitateMasura} onChange={e => setForm({ ...form, unitateMasura: e.target.value })} style={inputStyle}>
+                    {UNITATI_MASURA.map(u => <option key={u} value={u}>/ {u}</option>)}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '10px' }}>
+                <input placeholder={etichetaTitlu} value={form.titlu} onChange={e => setForm({ ...form, titlu: e.target.value })} style={inputStyle} />
+                <input type="number" placeholder="An" value={form.an} onChange={e => setForm({ ...form, an: e.target.value })} style={inputStyle} />
+              </div>
+            )}
             <select value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} style={inputStyle}>
-              {CATEGORII_SERVICII.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {categoriiOptiuni.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
-            <textarea rows={3} placeholder="Descriere scurtă a lucrării..." value={form.descriere} onChange={e => setForm({ ...form, descriere: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} />
+            <textarea rows={3} placeholder={esteFurnizor ? 'Descriere scurtă a produsului (specificații, marcă, disponibilitate)...' : 'Descriere scurtă a lucrării...'} value={form.descriere} onChange={e => setForm({ ...form, descriere: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} />
             {eroare && <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>{eroare}</div>}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="submit" disabled={salvand} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#2F6FED', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 16px', fontSize: '12.5px', fontWeight: '700', cursor: salvand ? 'default' : 'pointer', opacity: salvand ? 0.7 : 1 }}>
@@ -741,7 +867,7 @@ function PortofoliuCard({ t, user, setUser }) {
         )}
 
         {lucrari.length === 0 ? (
-          <EmptyHint t={t} text="Nu ai adăugat încă nicio lucrare. Un portofoliu complet crește șansele de a câștiga oferte." />
+          <EmptyHint t={t} text={textGol} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {lucrari.map(l => (
@@ -749,7 +875,12 @@ function PortofoliuCard({ t, user, setUser }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: '700', fontSize: '13.5px', color: t.textPrincipal }}>{l.titlu}</span>
-                    {l.an && <span style={{ fontSize: '11px', color: t.textSecundar }}>· {l.an}</span>}
+                    {esteFurnizor && l.pret != null && (
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#10b981' }}>
+                        {Number(l.pret).toLocaleString()} RON{l.unitateMasura ? ` / ${l.unitateMasura}` : ''}
+                      </span>
+                    )}
+                    {!esteFurnizor && l.an && <span style={{ fontSize: '11px', color: t.textSecundar }}>· {l.an}</span>}
                     {l.categorie && <span style={{ fontSize: '10px', fontWeight: '700', color: '#2F6FED', backgroundColor: 'rgba(47,111,237,0.1)', padding: '2px 8px', borderRadius: '10px' }}>{l.categorie}</span>}
                   </div>
                   {l.descriere && <p style={{ margin: '5px 0 0', fontSize: '12.5px', color: t.textSecundar, lineHeight: 1.5 }}>{l.descriere}</p>}
@@ -770,9 +901,9 @@ function PortofoliuCard({ t, user, setUser }) {
 // Card "Recomandări / Referințe" — contracte încheiate în afara platformei,
 // demonstrate cu document justificativ + valoare, pentru credibilitate.
 // ─────────────────────────────────────────────────────────────────────────
-function RecomandariCard({ t, user, setUser }) {
+function RecomandariCard({ t, user, setUser, categoriiOptiuni = CATEGORII_SERVICII }) {
   const [formDeschis, setFormDeschis] = useState(false);
-  const [form, setForm] = useState({ categorie: 'Structuri', valoareContract: '', descriere: '' });
+  const [form, setForm] = useState({ categorie: categoriiOptiuni[0]?.value || '', valoareContract: '', descriere: '' });
   const [fisier, setFisier] = useState(null);
   const [salvand, setSalvand] = useState(false);
   const [eroare, setEroare] = useState('');
@@ -803,7 +934,7 @@ function RecomandariCard({ t, user, setUser }) {
       }
       const { utilizator } = await apiAdaugaRecomandare({ ...form, documentUrl, documentNume });
       setUser(prev => ({ ...prev, ...utilizator }));
-      setForm({ categorie: 'Structuri', valoareContract: '', descriere: '' });
+      setForm({ categorie: categoriiOptiuni[0]?.value || '', valoareContract: '', descriere: '' });
       setFisier(null);
       setFormDeschis(false);
     } catch (err) {
@@ -843,7 +974,7 @@ function RecomandariCard({ t, user, setUser }) {
           <form onSubmit={adauga} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: recomandari.length ? '18px' : 0, padding: '16px', borderRadius: '12px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: '10px' }}>
               <select value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} style={inputStyle}>
-                {CATEGORII_SERVICII.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {categoriiOptiuni.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
               <input type="number" min="0" placeholder="Valoare contract (RON)" value={form.valoareContract} onChange={e => setForm({ ...form, valoareContract: e.target.value })} style={inputStyle} />
             </div>
@@ -870,7 +1001,7 @@ function RecomandariCard({ t, user, setUser }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {recomandari.map(r => {
-              const cat = CATEGORII_SERVICII.find(c => c.value === r.categorie);
+              const cat = categoriiOptiuni.find(c => c.value === r.categorie);
               return (
                 <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', padding: '13px 16px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
                   <div style={{ minWidth: 0 }}>
@@ -978,7 +1109,11 @@ function RatingCard({ t, user }) {
 // ─────────────────────────────────────────────────────────────────────────
 // Card "Disponibilitate" — perioade libere declarate de subcontractor.
 // ─────────────────────────────────────────────────────────────────────────
-function DisponibilitateCard({ t, user, setUser }) {
+// Pentru SUBCONTRACTOR: perioade în care e disponibil pentru un șantier nou.
+// Pentru FURNIZOR: perioade în care un produs/categorie NU poate fi livrat(ă)
+// (stoc epuizat, furnizor extern indisponibil etc.) — aceleași date de
+// început/sfârșit din schemă, doar reinterpretate util pentru domeniul lui.
+function DisponibilitateCard({ t, user, setUser, esteFurnizor = false }) {
   const [formDeschis, setFormDeschis] = useState(false);
   const [form, setForm] = useState({ start: '', end: '', nota: '' });
   const [salvand, setSalvand] = useState(false);
@@ -986,6 +1121,8 @@ function DisponibilitateCard({ t, user, setUser }) {
   const [stergandId, setStergandId] = useState(null);
 
   const perioade = user?.disponibilitate || [];
+  const culoareChip = esteFurnizor ? '#FF9E2C' : '#22B27D';
+  const culoareChipBg = esteFurnizor ? 'rgba(255,158,44,0.1)' : 'rgba(34,178,125,0.1)';
 
   const inputStyle = {
     width: '100%', padding: '10px 13px', borderRadius: '9px',
@@ -1027,7 +1164,7 @@ function DisponibilitateCard({ t, user, setUser }) {
     <div style={{ backgroundColor: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '16px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar }}>
-          <Calendar size={13} /> Disponibilitate
+          <Calendar size={13} /> {esteFurnizor ? 'Indisponibilitate Stoc' : 'Disponibilitate'}
         </span>
         {!formDeschis && (
           <button onClick={() => setFormDeschis(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: `1px solid ${t.border}`, color: t.accent || '#2F6FED', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
@@ -1049,7 +1186,7 @@ function DisponibilitateCard({ t, user, setUser }) {
                 <input type="date" value={form.end} onChange={e => setForm({ ...form, end: e.target.value })} style={{ ...inputStyle, marginTop: '5px' }} />
               </div>
             </div>
-            <input placeholder="Notă (opțional, ex: doar echipă de finisaje)" value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} style={inputStyle} />
+            <input placeholder={esteFurnizor ? 'Notă (opțional, ex: stoc epuizat la ciment CEM II)' : 'Notă (opțional, ex: doar echipă de finisaje)'} value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} style={inputStyle} />
             {eroare && <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>{eroare}</div>}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="submit" disabled={salvand} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#2F6FED', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 16px', fontSize: '12.5px', fontWeight: '700', cursor: salvand ? 'default' : 'pointer', opacity: salvand ? 0.7 : 1 }}>
@@ -1063,14 +1200,16 @@ function DisponibilitateCard({ t, user, setUser }) {
         )}
 
         {perioade.length === 0 ? (
-          <EmptyHint t={t} text="Nu ai declarat perioade de disponibilitate. Adaugă intervale ca dezvoltatorii să știe când poți începe lucrul." />
+          <EmptyHint t={t} text={esteFurnizor
+            ? 'Nu ai declarat perioade de indisponibilitate stoc. Adaugă un interval dacă un produs sau o categorie nu va putea fi livrată temporar.'
+            : 'Nu ai declarat perioade de disponibilitate. Adaugă intervale ca dezvoltatorii să știe când poți începe lucrul.'} />
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {perioade.map(d => (
-              <span key={d._id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', fontWeight: '600', padding: '7px 8px 7px 14px', borderRadius: '20px', backgroundColor: 'rgba(34,178,125,0.1)', color: '#22B27D' }}>
+              <span key={d._id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', fontWeight: '600', padding: '7px 8px 7px 14px', borderRadius: '20px', backgroundColor: culoareChipBg, color: culoareChip }}>
                 {new Date(d.start).toLocaleDateString('ro-RO')} – {new Date(d.end).toLocaleDateString('ro-RO')}
                 {d.nota && <span style={{ opacity: 0.75 }}>· {d.nota}</span>}
-                <button onClick={() => sterge(d._id)} style={{ background: 'none', border: 'none', color: '#22B27D', cursor: 'pointer', display: 'flex', padding: '3px', borderRadius: '50%' }}>
+                <button onClick={() => sterge(d._id)} style={{ background: 'none', border: 'none', color: culoareChip, cursor: 'pointer', display: 'flex', padding: '3px', borderRadius: '50%' }}>
                   <X size={11} />
                 </button>
               </span>

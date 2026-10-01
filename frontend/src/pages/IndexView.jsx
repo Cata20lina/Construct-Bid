@@ -26,6 +26,13 @@ function EtichetaSectiune({ t, children }) {
 
 export default function IndexView({ t, setActiveTab, user }) {
   const esteSubcontractor = user?.rol === 'SUBCONTRACTOR';
+  const esteFurnizor = user?.rol === 'FURNIZOR';
+
+  // Ținta și eticheta butonului principal de acțiune — diferă pe rol.
+  // Pentru FURNIZOR nu există un anunț/proiect de publicat sau ofertat —
+  // fluxul lui e separat, la Cereri de Materiale (fila "Materiale").
+  const tabButonPrincipal = esteSubcontractor ? 'santiere' : esteFurnizor ? 'materiale' : 'adauga_anunt';
+  const textButonPrincipal = esteSubcontractor ? 'Vezi Șantierele Active' : esteFurnizor ? 'Vezi Cererile de Materiale' : 'Publică un Anunț';
 
   const cardStyle = {
     position: 'relative',
@@ -47,6 +54,12 @@ export default function IndexView({ t, setActiveTab, user }) {
         { icon: <MapPin size={18} />, titlu: 'Găsește șantiere', text: 'Vezi anunțuri active, filtrate pe județ, categorie și buget.' },
         { icon: <Send size={18} />, titlu: 'Trimite oferta ta', text: 'Ofertare statică sau licitație dinamică în timp real, direct din platformă.' },
         { icon: <Gavel size={18} />, titlu: 'Câștigă contractul', text: 'Primești notificare instant când un dezvoltator acceptă oferta ta.' },
+      ]
+    : esteFurnizor
+    ? [
+        { icon: <Layers size={18} />, titlu: 'Completează catalogul', text: 'Adaugă materialele și echipamentele pe care le furnizezi, plus zonele de livrare — vizibile în Catalogul public.' },
+        { icon: <Send size={18} />, titlu: 'Licitează pe cereri de materiale', text: 'Dezvoltatorii și subcontractorii publică ce au nevoie; tu trimiți preț și termen de livrare pe articolele pe care le poți acoperi.' },
+        { icon: <ShieldCheck size={18} />, titlu: 'Construiește-ți reputația', text: 'Recomandările și evaluările primite cresc încrederea firmelor care te contactează.' },
       ]
     : [
         { icon: <FileCheck2 size={18} />, titlu: 'Publică un anunț', text: 'Descrie lucrarea, bugetul și termenul limită în câteva minute.' },
@@ -160,12 +173,14 @@ export default function IndexView({ t, setActiveTab, user }) {
         <p style={{ fontSize: '16px', color: t.textSecundar, lineHeight: 1.6, margin: '0 0 32px', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
           {esteSubcontractor
             ? 'Bine ai revenit, ' + (user?.nume || '') + '. Găsește proiecte potrivite firmei tale și trimite oferte direct din platformă, fără intermediari.'
+            : esteFurnizor
+            ? 'Bine ai revenit, ' + (user?.nume || '') + '. Completează catalogul de materiale și fii găsit de dezvoltatori și subcontractori din zona ta.'
             : 'Bine ai revenit, ' + (user?.nume || '') + '. Publică lucrarea, primește oferte de la subcontractori verificați și alege câștigătorul în siguranță.'}
         </p>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button
             className="cb-idx-btn-primary"
-            onClick={() => setActiveTab && setActiveTab(esteSubcontractor ? 'santiere' : 'adauga_anunt')}
+            onClick={() => setActiveTab && setActiveTab(tabButonPrincipal)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               background: t.accentGradient, color: '#fff', border: 'none', borderRadius: '10px',
@@ -173,7 +188,7 @@ export default function IndexView({ t, setActiveTab, user }) {
               boxShadow: `0 8px 20px ${t.accentSoft}`,
             }}
           >
-            {esteSubcontractor ? 'Vezi Șantierele Active' : 'Publică un Anunț'} <ArrowRight size={16} />
+            {textButonPrincipal} <ArrowRight size={16} />
           </button>
           <button
             className="cb-idx-btn-ghost"
@@ -209,7 +224,7 @@ export default function IndexView({ t, setActiveTab, user }) {
       <div style={{ marginBottom: '64px' }}>
         <EtichetaSectiune t={t}>Fluxul de lucru</EtichetaSectiune>
         <h2 style={sectionTitleStyle}>
-          Cum funcționează pentru {esteSubcontractor ? 'subcontractori' : 'dezvoltatori'}
+          Cum funcționează pentru {esteSubcontractor ? 'subcontractori' : esteFurnizor ? 'furnizori' : 'dezvoltatori'}
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '28px' }}>
           {pasi.map((p, i) => (
@@ -311,7 +326,7 @@ export default function IndexView({ t, setActiveTab, user }) {
           </div>
           <h3 style={{ fontFamily: t.fontDisplay, fontSize: '16px', fontWeight: '700', color: t.textPrincipal, margin: '0 0 8px' }}>Notificări și actualizări live</h3>
           <p style={{ fontSize: '13.5px', color: t.textSecundar, margin: 0, lineHeight: 1.65 }}>
-            Oferte noi, rezultate de licitație și mesaje ajung instant prin conexiune socket, fără să reîncarci pagina. Le vezi centralizat în tab-ul de notificări.
+            Ofertele noi și rezultatele de licitație ajung instant prin conexiune socket, fără să reîncarci pagina. Le vezi centralizat în tab-ul de notificări.
           </p>
         </div>
       </div>
@@ -360,23 +375,25 @@ export default function IndexView({ t, setActiveTab, user }) {
         <div style={{ position: 'relative' }}>
           <Building2 size={26} color="#fff" style={{ marginBottom: '12px' }} />
           <h3 style={{ fontFamily: t.fontDisplay, fontSize: '20px', fontWeight: '800', color: '#fff', margin: '0 0 8px' }}>
-            {esteSubcontractor ? 'Gata să găsești următorul șantier?' : 'Gata să publici primul anunț?'}
+            {esteSubcontractor ? 'Gata să găsești următorul șantier?' : esteFurnizor ? 'Gata să-ți completezi catalogul?' : 'Gata să publici primul anunț?'}
           </h3>
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', margin: '0 0 20px', maxWidth: '480px', marginLeft: 'auto', marginRight: 'auto' }}>
             {esteSubcontractor
               ? 'Vezi șantierele active chiar acum și trimite prima ofertă în câteva minute.'
+              : esteFurnizor
+              ? 'Adaugă materialele și zonele de livrare — durează câteva minute și te face vizibil imediat.'
               : 'Publicarea unui anunț durează câteva minute și ajunge direct la subcontractori din județul tău.'}
           </p>
           <button
             className="cb-idx-btn-primary"
-            onClick={() => setActiveTab && setActiveTab(esteSubcontractor ? 'santiere' : 'adauga_anunt')}
+            onClick={() => setActiveTab && setActiveTab(tabButonPrincipal)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               backgroundColor: '#fff', color: t.accent, border: 'none', borderRadius: '10px',
               padding: '13px 26px', fontSize: '14.5px', fontWeight: '700', cursor: 'pointer',
             }}
           >
-            {esteSubcontractor ? 'Vezi Anunțuri Active' : 'Publică un Anunț'} <ArrowRight size={16} />
+            {textButonPrincipal} <ArrowRight size={16} />
           </button>
         </div>
       </div>

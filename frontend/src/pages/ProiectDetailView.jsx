@@ -5,8 +5,12 @@ import {
   Clock, FileText, ChevronRight, Users,
   Paperclip, X, File, Gauge, Lock, Trophy, TrendingDown,
   Crown, AlertTriangle, Phone, Mail, Hash, MapPinned, Loader2, Target,
+  ShieldCheck, FileCheck, HelpCircle,
 } from 'lucide-react';
-import { apiOferteProiect, apiTrimiteOferta, apiUploadFisiere, apiContactOferta } from '../api.js';
+import {
+  apiOferteProiect, apiTrimiteOferta, apiUploadFisiere, apiContactOferta,
+  apiListaClarificari, apiAdaugaClarificare, apiRaspundeClarificare,
+} from '../api.js';
 import { getSocket } from '../socket.js';
 
 const CATEGORIE_CONFIG = {
@@ -51,8 +55,67 @@ export default function ProiectDetailView({
   const [erorOfertaLive, setErorOfertaLive] = useState('');
   const [trimitOfertaLive, setTrimitOfertaLive] = useState(false);
 
+  // ── Stare CLARIFICĂRI (întrebări & răspunsuri publice) ──
+  const [clarificari, setClarificari] = useState([]);
+  const [incarcClarificari, setIncarcClarificari] = useState(true);
+  const [intrebareNoua, setIntrebareNoua] = useState('');
+  const [erorClarificare, setErorClarificare] = useState('');
+  const [raspunsuriDeschise, setRaspunsuriDeschise] = useState({});
+  const [trimitRaspunsId, setTrimitRaspunsId] = useState(null);
+  const [trimitIntrebareLoading, setTrimitIntrebareLoading] = useState(false);
+
   const esteDezvoltator = user?.rol === 'DEZVOLTATOR';
+  const esteSubcontractor = user?.rol === 'SUBCONTRACTOR';
+  const esteFurnizor = user?.rol === 'FURNIZOR';
+  // Proiectele sunt licitații de EXECUȚIE (manoperă) — doar subcontractorii
+  // pot oferta aici. Furnizorii (materiale/echipamente) au propriul flux, la
+  // Cereri de Materiale, unde licitează pe articole punctuale, nu pe proiect.
+  const poateOferta = esteSubcontractor;
   const esteDinamica = proiectLive?.tipOfertare === 'dinamica';
+
+  // ── Încărcare clarificări pentru proiectul curent ──
+  useEffect(() => {
+    if (!proiect?._id) return;
+    let activ = true;
+    setIncarcClarificari(true);
+    apiListaClarificari(proiect._id)
+      .then(data => { if (activ) setClarificari(Array.isArray(data) ? data : []); })
+      .catch(() => {})
+      .finally(() => { if (activ) setIncarcClarificari(false); });
+    return () => { activ = false; };
+  }, [proiect?._id]);
+
+  const trimiteIntrebare = async (e) => {
+    e.preventDefault();
+    // Protecție la dublu-submit (dublu-click, Enter + click pe buton etc.) —
+    // fără ea, aceeași întrebare putea fi trimisă de două ori.
+    if (trimitIntrebareLoading || !intrebareNoua.trim()) return;
+    setErorClarificare('');
+    setTrimitIntrebareLoading(true);
+    try {
+      const noua = await apiAdaugaClarificare(proiect._id, intrebareNoua.trim());
+      setClarificari(prev => [...prev, noua]);
+      setIntrebareNoua('');
+    } catch (err) {
+      setErorClarificare(err.message || 'Nu s-a putut trimite întrebarea.');
+    } finally {
+      setTrimitIntrebareLoading(false);
+    }
+  };
+
+  const trimiteRaspuns = async (id, text) => {
+    if (!text || !text.trim()) return;
+    setTrimitRaspunsId(id);
+    try {
+      const actualizata = await apiRaspundeClarificare(id, text.trim());
+      setClarificari(prev => prev.map(c => c._id === id ? actualizata : c));
+      setRaspunsuriDeschise(prev => ({ ...prev, [id]: undefined }));
+    } catch (err) {
+      setErorClarificare(err.message || 'Nu s-a putut trimite răspunsul.');
+    } finally {
+      setTrimitRaspunsId(null);
+    }
+  };
 
   // Sincronizăm proiectul local când prop-ul se schimbă (navigare nouă)
   useEffect(() => { setProiectLive(proiect); }, [proiect?._id]);
@@ -218,19 +281,21 @@ export default function ProiectDetailView({
     <div style={{ maxWidth: esteDinamica ? '1100px' : '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* Buton înapoi */}
-      <button
-        onClick={onBack}
-        style={{
-          alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px',
-          background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px',
-          padding: '8px 14px', color: t.textSecundar, fontSize: '13px',
-          fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = '#2F6FED'; e.currentTarget.style.color = '#2F6FED'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecundar; }}
-      >
-        <ArrowLeft size={15} /> Înapoi la licitații
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+        <button
+          onClick={onBack}
+          style={{
+            alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px',
+            background: 'none', border: `1px solid ${t.border}`, borderRadius: '8px',
+            padding: '8px 14px', color: t.textSecundar, fontSize: '13px',
+            fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#2F6FED'; e.currentTarget.style.color = '#2F6FED'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecundar; }}
+        >
+          <ArrowLeft size={15} /> Înapoi la licitații
+        </button>
+      </div>
 
       {/* ── HEADER PROIECT ── */}
       <div style={{
@@ -330,7 +395,7 @@ export default function ProiectDetailView({
           LICITAȚIE DINAMICĂ — clasament live + formular ofertare repetată
          ════════════════════════════════════════════════════════════════ */}
       {esteDinamica ? (
-        <div style={{ display: 'grid', gridTemplateColumns: esteDezvoltator ? '1fr' : '1fr 380px', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
 
           {/* Coloana stânga: descriere + clasament live */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -344,6 +409,18 @@ export default function ProiectDetailView({
                 </p>
               </div>
             </div>
+
+            <CondițiiParticipareCard proiect={proiect} t={t} />
+
+            <ClarificariCard
+              t={t} user={user} esteDezvoltator={esteDezvoltator} poateOferta={poateOferta}
+              clarificari={clarificari} incarcClarificari={incarcClarificari}
+              intrebareNoua={intrebareNoua} setIntrebareNoua={setIntrebareNoua}
+              trimiteIntrebare={trimiteIntrebare} erorClarificare={erorClarificare}
+              trimitIntrebareLoading={trimitIntrebareLoading}
+              raspunsuriDeschise={raspunsuriDeschise} setRaspunsuriDeschise={setRaspunsuriDeschise}
+              trimiteRaspuns={trimiteRaspuns} trimitRaspunsId={trimitRaspunsId}
+            />
 
             {/* Status licitație */}
             {licitatieExpirata && (
@@ -416,10 +493,10 @@ export default function ProiectDetailView({
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: '700', fontSize: '14px', color: t.textPrincipal, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {esteDezvoltator ? (o.subcontractor?.nume || 'Subcontractor') : (esteMea ? 'Oferta ta' : 'Concurent')}
+                              {esteDezvoltator ? (o.subcontractor?.nume || 'Ofertant') : (esteMea ? 'Oferta ta' : 'Concurent')}
                               {esteMea && <span style={{ fontSize: '10px', fontWeight: '800', color: '#2F6FED', backgroundColor: 'rgba(47,111,237,0.12)', padding: '2px 7px', borderRadius: '10px' }}>TU</span>}
                             </div>
-                            <div style={{ fontSize: '12px', color: t.textSecundar }}>{o.termenExecutie} zile execuție</div>
+                            <div style={{ fontSize: '12px', color: t.textSecundar }}>{o.termenExecutie} zile {o.subcontractor?.rol === 'FURNIZOR' ? 'livrare' : 'execuție'}</div>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -437,7 +514,7 @@ export default function ProiectDetailView({
           </div>
 
           {/* Coloana dreapta: formular ofertare live — DOAR SUBCONTRACTOR */}
-          {!esteDezvoltator && (
+          {poateOferta && (
             <div style={{
               backgroundColor: t.bgCard, borderRadius: '16px',
               border: `1px solid ${t.border}`, overflow: 'hidden',
@@ -492,7 +569,7 @@ export default function ProiectDetailView({
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}><Clock size={12} /> Durată Execuție (zile)</label>
+                      <label style={labelStyle}><Clock size={12} /> {esteFurnizor ? 'Termen Livrare (zile)' : 'Durată Execuție (zile)'}</label>
                       <input required type="number" min="1" placeholder="ex: 30"
                         value={formOferta.zile}
                         onChange={e => setFormOferta({ ...formOferta, zile: e.target.value })}
@@ -543,7 +620,7 @@ export default function ProiectDetailView({
         /* ════════════════════════════════════════════════════════════════
             OFERTARE STATICĂ — formular clasic, o singură ofertă
            ════════════════════════════════════════════════════════════════ */
-        <div style={{ display: 'grid', gridTemplateColumns: esteDezvoltator ? '1fr' : '1fr 380px', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: poateOferta ? '1fr 380px' : '1fr', gap: '20px', alignItems: 'start' }}>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -556,12 +633,24 @@ export default function ProiectDetailView({
               </div>
             </div>
 
+            <CondițiiParticipareCard proiect={proiect} t={t} />
+
+            <ClarificariCard
+              t={t} user={user} esteDezvoltator={esteDezvoltator} poateOferta={poateOferta}
+              clarificari={clarificari} incarcClarificari={incarcClarificari}
+              intrebareNoua={intrebareNoua} setIntrebareNoua={setIntrebareNoua}
+              trimiteIntrebare={trimiteIntrebare} erorClarificare={erorClarificare}
+              trimitIntrebareLoading={trimitIntrebareLoading}
+              raspunsuriDeschise={raspunsuriDeschise} setRaspunsuriDeschise={setRaspunsuriDeschise}
+              trimiteRaspuns={trimiteRaspuns} trimitRaspunsId={trimitRaspunsId}
+            />
+
             {esteDezvoltator && (
               <OferteleDezvoltatorStatic proiect={proiect} t={t} onSelectOferta={onSelectOferta} StatusBadge={StatusBadge} />
             )}
           </div>
 
-          {!esteDezvoltator && (
+          {poateOferta && (
             <div style={{
               backgroundColor: t.bgCard, borderRadius: '16px',
               border: `1px solid ${t.border}`, overflow: 'hidden',
@@ -601,7 +690,7 @@ export default function ProiectDetailView({
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}><Clock size={12} /> Durată Execuție (zile)</label>
+                      <label style={labelStyle}><Clock size={12} /> {esteFurnizor ? 'Termen Livrare (zile)' : 'Durată Execuție (zile)'}</label>
                       <input required type="number" min="1" placeholder="ex: 30"
                         value={formOferta.zile}
                         onChange={e => setFormOferta({ ...formOferta, zile: e.target.value })}
@@ -777,11 +866,11 @@ function OferteleDezvoltatorStatic({ proiect, t, onSelectOferta, StatusBadge }) 
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: '700', fontSize: '14px', color: t.textPrincipal, marginBottom: '4px' }}>
-                  👷 {o.subcontractor?.nume || 'Subcontractor'}
+                  {o.subcontractor?.rol === 'FURNIZOR' ? '📦' : '👷'} {o.subcontractor?.nume || 'Ofertant'}
                 </div>
                 <div style={{ fontSize: '12px', color: t.textSecundar }}>
                   <span style={{ color: '#10b981', fontWeight: '800' }}>{Number(o.valoare).toLocaleString()} {o.moneda}</span>
-                  {' '}&nbsp;•&nbsp; {o.termenExecutie} zile execuție
+                  {' '}&nbsp;•&nbsp; {o.termenExecutie} zile {o.subcontractor?.rol === 'FURNIZOR' ? 'livrare' : 'execuție'}
                 </div>
                 {o.descriere && (
                   <div style={{ fontSize: '12px', fontStyle: 'italic', color: t.textSecundar, marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '380px' }}>
@@ -832,6 +921,160 @@ function HartaProiect({ proiect, t }) {
   );
 }
 
+// ─── Card "Condiții de Participare" — apare doar dacă dezvoltatorul a setat
+// măcar una dintre condiții la publicare (Row 4 din tracker). ───────────────
+function CondițiiParticipareCard({ proiect, t }) {
+  const areCeva = proiect.termenLimitaOferta || proiect.avansProcent != null || proiect.garantii || proiect.experientaMinima;
+  if (!areCeva) return null;
+
+  const randuri = [
+    proiect.termenLimitaOferta && {
+      icon: <Clock size={14} />, label: 'Termen limită depunere ofertă',
+      value: new Date(proiect.termenLimitaOferta).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    },
+    proiect.avansProcent != null && {
+      icon: <Banknote size={14} />, label: 'Avans', value: `${proiect.avansProcent}%`,
+    },
+    proiect.garantii && {
+      icon: <ShieldCheck size={14} />, label: 'Garanții', value: proiect.garantii,
+    },
+    proiect.experientaMinima && {
+      icon: <FileCheck size={14} />, label: 'Experiență necesară', value: proiect.experientaMinima,
+    },
+  ].filter(Boolean);
+
+  return (
+    <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
+      <SectionHeader icon={<ShieldCheck size={13} />} label="Condiții de Participare" t={t} />
+      <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {randuri.map((r, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: t.textSecundar, fontSize: '13px', flexShrink: 0 }}>
+              {r.icon} {r.label}
+            </div>
+            <div style={{ fontWeight: '700', fontSize: '13px', color: t.textPrincipal, textAlign: 'right' }}>{r.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Card "Clarificări" — Q&A public pe pagina proiectului. Orice ofertant
+// (subcontractor/furnizor) poate întreba; doar dezvoltatorul proiectului
+// poate răspunde. Toată lumea vede întrebările și răspunsurile. ────────────
+function ClarificariCard({
+  t, user, esteDezvoltator, poateOferta,
+  clarificari, incarcClarificari,
+  intrebareNoua, setIntrebareNoua, trimiteIntrebare, erorClarificare,
+  raspunsuriDeschise, setRaspunsuriDeschise, trimiteRaspuns, trimitRaspunsId,
+  trimitIntrebareLoading = false,
+}) {
+  const userId = user?.id || user?._id;
+
+  return (
+    <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
+      <SectionHeader icon={<HelpCircle size={13} />} label={`Clarificări (${clarificari.length})`} t={t} />
+      <div style={{ padding: incarcClarificari || clarificari.length === 0 ? '24px' : '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+        {incarcClarificari ? (
+          <p style={{ color: t.textSecundar, fontSize: '13px', margin: 0, textAlign: 'center' }}>Se încarcă...</p>
+        ) : clarificari.length === 0 ? (
+          <p style={{ color: t.textSecundar, fontSize: '13px', margin: 0, textAlign: 'center' }}>
+            Nicio întrebare încă. {poateOferta ? 'Fii primul care întreabă ceva.' : ''}
+          </p>
+        ) : (
+          clarificari.map(c => {
+            const esteAMea = (c.autor?._id || c.autor) === userId;
+            const raspunsDraft = raspunsuriDeschise[c._id];
+            return (
+              <div key={c._id} style={{ padding: '12px 14px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span style={{ fontWeight: '700', fontSize: '13px', color: t.textPrincipal }}>
+                    {esteDezvoltator ? (c.autor?.nume || 'Ofertant') : (esteAMea ? 'Întrebarea ta' : c.autor?.nume || 'Ofertant')}
+                  </span>
+                  {esteAMea && <span style={{ fontSize: '10px', fontWeight: '800', color: '#2F6FED', backgroundColor: 'rgba(47,111,237,0.12)', padding: '2px 7px', borderRadius: '10px' }}>TU</span>}
+                </div>
+                <div style={{ fontSize: '13px', color: t.textPrincipal, lineHeight: 1.5, marginBottom: c.raspuns || esteDezvoltator ? '8px' : 0 }}>{c.intrebare}</div>
+
+                {c.raspuns ? (
+                  <div style={{ display: 'flex', gap: '8px', padding: '8px 10px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <CheckCircle2 size={14} color="#10b981" style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <div style={{ fontSize: '12.5px', color: t.textPrincipal, lineHeight: 1.5 }}>
+                      <strong style={{ color: '#10b981' }}>Răspuns dezvoltator: </strong>{c.raspuns}
+                    </div>
+                  </div>
+                ) : esteDezvoltator ? (
+                  raspunsDraft !== undefined ? (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text" autoFocus
+                        value={raspunsDraft}
+                        onChange={e => setRaspunsuriDeschise(prev => ({ ...prev, [c._id]: e.target.value }))}
+                        placeholder="Scrie răspunsul..."
+                        style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: t.bgCard, color: t.textPrincipal, fontSize: '12.5px', outline: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        disabled={trimitRaspunsId === c._id}
+                        onClick={() => trimiteRaspuns(c._id, raspunsDraft)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', backgroundColor: '#2F6FED', color: '#fff', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        {trimitRaspunsId === c._id ? '...' : 'Trimite'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRaspunsuriDeschise(prev => ({ ...prev, [c._id]: '' }))}
+                      style={{ padding: '6px 12px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: 'transparent', color: '#2F6FED', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Răspunde
+                    </button>
+                  )
+                ) : (
+                  <div style={{ fontSize: '12px', color: t.textSecundar, fontStyle: 'italic' }}>În așteptarea răspunsului dezvoltatorului.</div>
+                )}
+              </div>
+            );
+          })
+        )}
+
+        {erorClarificare && (
+          <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '13px', fontWeight: '600', border: '1px solid rgba(239,68,68,0.2)' }}>
+            ⚠️ {erorClarificare}
+          </div>
+        )}
+
+        {poateOferta && (
+          <form onSubmit={trimiteIntrebare} style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <input
+              type="text"
+              value={intrebareNoua}
+              onChange={e => setIntrebareNoua(e.target.value)}
+              placeholder="Pune o întrebare despre acest proiect..."
+              disabled={trimitIntrebareLoading}
+              style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: t.bgInput, color: t.textPrincipal, fontSize: '13px', outline: 'none', opacity: trimitIntrebareLoading ? 0.6 : 1 }}
+            />
+            <button
+              type="submit"
+              disabled={trimitIntrebareLoading || !intrebareNoua.trim()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: 'none',
+                backgroundColor: (trimitIntrebareLoading || !intrebareNoua.trim()) ? 'rgba(47,111,237,0.5)' : '#2F6FED',
+                color: '#fff', fontSize: '13px', fontWeight: '700',
+                cursor: (trimitIntrebareLoading || !intrebareNoua.trim()) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <Send size={13} /> {trimitIntrebareLoading ? 'Se trimite...' : 'Întreabă'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SectionHeader({ icon, label, t }) {
   return (
     <div style={{
@@ -869,7 +1112,7 @@ function ContactCardLicitatie({ t, ofertaId, esteDezvoltator }) {
   return (
     <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: '1px solid rgba(16,185,129,0.3)', overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
       <div style={{ padding: '14px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: 'rgba(16,185,129,0.06)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Trophy size={13} /> Date de Contact — {esteDezvoltator ? 'Subcontractor Câștigător' : 'Beneficiar'}
+        <Trophy size={13} /> Date de Contact — {esteDezvoltator ? 'Ofertant Câștigător' : 'Beneficiar'}
       </div>
       <div style={{ padding: '20px 24px' }}>
         {loading ? (

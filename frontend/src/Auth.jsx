@@ -1,9 +1,31 @@
 import React, { useState } from 'react';
-import { Building2, Mail, Lock, User, ArrowRight, Map, AlertCircle, Search, CheckCircle2, Loader2, Phone, Hash } from 'lucide-react';
-import { apiLogin, apiRegister, apiVerificaCui, setToken } from './api.js';
+import { Building2, Mail, Lock, User, ArrowRight, Map, AlertCircle, Search, CheckCircle2, Loader2, Phone, Hash, X, KeyRound } from 'lucide-react';
+import { apiLogin, apiRegister, apiVerificaCui, apiSolicitaResetareParola, apiReseteazaParola, setToken } from './api.js';
+import { TERMENI_TEXT, CONFIDENTIALITATE_TEXT } from './legalContent.js';
+
+// ─── Modal simplu pentru Termeni / Confidențialitate — platforma nu are
+//     rutare proprie (e un SPA cu taburi din state), așa că cel mai simplu e
+//     un overlay peste ecranul de autentificare, nu o pagină separată. ───
+function LegalModal({ titlu, text, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#111827', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', maxWidth: '640px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <span style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>{titlu}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}><X size={18} /></button>
+        </div>
+        <div style={{ padding: '20px 22px', overflowY: 'auto', color: '#cbd5e1', fontSize: '13px', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Auth({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
+  const [ecranActiv, setEcranActiv] = useState('auth'); // 'auth' | 'uita-parola'
+  const [modalLegal, setModalLegal] = useState(null); // 'termeni' | 'confidentialitate' | null
 
   // Câmpuri formular
   const [email, setEmail]                   = useState('');
@@ -14,9 +36,20 @@ export default function Auth({ onLoginSuccess }) {
   const [telefon, setTelefon]                = useState('');
   const [rol, setRol]                        = useState('SUBCONTRACTOR');
   const [judet, setJudet]                    = useState('');
+  const [termeniAcceptati, setTermeniAcceptati] = useState(false);
 
   const [eroare, setEroare]         = useState('');
   const [seIncarca, setSeIncarca]   = useState(false);
+
+  // ─── Resetare parolă uitată — flux în 2 pași (cere cod → introdu cod+parolă) ──
+  const [resetPas, setResetPas]                     = useState('cerere'); // 'cerere' | 'cod'
+  const [resetEmail, setResetEmail]                 = useState('');
+  const [resetCod, setResetCod]                     = useState('');
+  const [resetParolaNoua, setResetParolaNoua]       = useState('');
+  const [resetConfirmaParola, setResetConfirmaParola] = useState('');
+  const [resetEroare, setResetEroare]               = useState('');
+  const [resetMesaj, setResetMesaj]                 = useState('');
+  const [resetSeIncarca, setResetSeIncarca]         = useState(false);
 
   // ─── Verificare CUI la ANAF (opțional, autocompletează denumirea firmei) ───
   const [cuiVerificand, setCuiVerificand] = useState(false);
@@ -41,6 +74,7 @@ export default function Auth({ onLoginSuccess }) {
     if (!email.trim())   { setEroare('Completează adresa de email.'); return; }
     if (parola.length < 6) { setEroare('Parola trebuie să aibă cel puțin 6 caractere.'); return; }
     if (parola !== confirmaParola) { setEroare('Parolele nu coincid!'); return; }
+    if (!termeniAcceptati) { setEroare('Trebuie să accepți Termenii și Condițiile și Politica de Confidențialitate.'); return; }
 
     setSeIncarca(true);
     try {
@@ -52,6 +86,7 @@ export default function Auth({ onLoginSuccess }) {
         telefon: telefon.trim(),
         judet,
         rol,
+        termeniAcceptati,
       });
       setToken(data.token);
       onLoginSuccess(data.utilizator);
@@ -81,6 +116,49 @@ export default function Auth({ onLoginSuccess }) {
   const schimbaModul = () => {
     setIsLogin(prev => !prev);
     setEroare('');
+  };
+
+  // ─── Pas 1: cere codul de resetare pe email ───
+  const solicitaResetare = async (e) => {
+    e.preventDefault();
+    setResetEroare('');
+    if (!resetEmail.trim()) { setResetEroare('Introdu adresa de email a contului.'); return; }
+    setResetSeIncarca(true);
+    try {
+      const data = await apiSolicitaResetareParola(resetEmail.toLowerCase().trim());
+      setResetMesaj(data?.mesaj || 'Dacă există un cont cu acest email, ți-am trimis un cod de resetare.');
+      setResetPas('cod');
+    } catch (err) {
+      setResetEroare(err.message || 'Nu am putut trimite codul de resetare.');
+    } finally {
+      setResetSeIncarca(false);
+    }
+  };
+
+  // ─── Pas 2: cod + parolă nouă → schimbă parola și autentifică direct ───
+  const confirmaResetare = async (e) => {
+    e.preventDefault();
+    setResetEroare('');
+    if (!resetCod.trim()) { setResetEroare('Introdu codul primit pe email.'); return; }
+    if (resetParolaNoua.length < 6) { setResetEroare('Parola trebuie să aibă cel puțin 6 caractere.'); return; }
+    if (resetParolaNoua !== resetConfirmaParola) { setResetEroare('Parolele nu coincid!'); return; }
+    setResetSeIncarca(true);
+    try {
+      const data = await apiReseteazaParola(resetEmail.toLowerCase().trim(), resetCod.trim(), resetParolaNoua);
+      setToken(data.token);
+      onLoginSuccess(data.utilizator);
+    } catch (err) {
+      setResetEroare(err.message || 'Nu am putut reseta parola.');
+    } finally {
+      setResetSeIncarca(false);
+    }
+  };
+
+  const inchideUitareParola = () => {
+    setEcranActiv('auth');
+    setResetPas('cerere');
+    setResetEmail(''); setResetCod(''); setResetParolaNoua(''); setResetConfirmaParola('');
+    setResetEroare(''); setResetMesaj('');
   };
 
   // ─── Verifică CUI-ul la ANAF și auto-completează denumirea firmei ───
@@ -164,6 +242,78 @@ export default function Auth({ onLoginSuccess }) {
 
         <div style={{ backgroundColor: '#111827', borderRadius: '16px', padding: '32px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
 
+          {ecranActiv === 'uita-parola' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+                <div style={{ background: 'rgba(47,111,237,0.12)', borderRadius: '10px', padding: '8px', display: 'flex' }}>
+                  <KeyRound size={18} color="#5B93FF" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>Resetează parola</div>
+                  <div style={{ fontSize: '12.5px', color: '#64748b' }}>
+                    {resetPas === 'cerere' ? 'Introdu emailul contului tău.' : 'Introdu codul primit pe email și noua parolă.'}
+                  </div>
+                </div>
+              </div>
+
+              {resetEroare && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '18px', color: '#f87171', fontSize: '13px', fontWeight: '600' }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} /> {resetEroare}
+                </div>
+              )}
+              {resetMesaj && resetPas === 'cod' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(34,178,125,0.1)', border: '1px solid rgba(34,178,125,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '18px', color: '#22B27D', fontSize: '12.5px' }}>
+                  <CheckCircle2 size={15} style={{ flexShrink: 0 }} /> {resetMesaj}
+                </div>
+              )}
+
+              {resetPas === 'cerere' ? (
+                <form onSubmit={solicitaResetare} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>E-mail Cont</label>
+                    <div style={{ position: 'relative' }}>
+                      <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                      <input type="email" required value={resetEmail} onChange={e => setResetEmail(e.target.value)} placeholder="nume@companie.ro" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={resetSeIncarca} style={{ background: 'linear-gradient(135deg, #2F6FED 0%, #1D4FC4 100%)', color: '#fff', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '700', fontSize: '15px', cursor: resetSeIncarca ? 'not-allowed' : 'pointer', opacity: resetSeIncarca ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    {resetSeIncarca ? 'Se trimite...' : 'Trimite codul'} <ArrowRight size={16} />
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={confirmaResetare} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Cod din 6 cifre</label>
+                    <input type="text" inputMode="numeric" maxLength={6} required value={resetCod} onChange={e => setResetCod(e.target.value.replace(/[^0-9]/g, ''))} placeholder="123456" style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', letterSpacing: '3px', boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Parolă Nouă</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                      <input type="password" required value={resetParolaNoua} onChange={e => setResetParolaNoua(e.target.value)} placeholder="••••••••" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Confirmă Parola Nouă</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                      <input type="password" required value={resetConfirmaParola} onChange={e => setResetConfirmaParola(e.target.value)} placeholder="Repetă parola" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={resetSeIncarca} style={{ background: 'linear-gradient(135deg, #2F6FED 0%, #1D4FC4 100%)', color: '#fff', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '700', fontSize: '15px', cursor: resetSeIncarca ? 'not-allowed' : 'pointer', opacity: resetSeIncarca ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    {resetSeIncarca ? 'Se procesează...' : 'Schimbă parola și intră în cont'} <ArrowRight size={16} />
+                  </button>
+                </form>
+              )}
+
+              <div style={{ textAlign: 'center', marginTop: '24px' }}>
+                <button onClick={inchideUitareParola} style={{ background: 'none', border: 'none', color: '#2F6FED', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                  ← Înapoi la autentificare
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
           {eroare && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '18px', color: '#f87171', fontSize: '13px', fontWeight: '600' }}>
               <AlertCircle size={15} style={{ flexShrink: 0 }} /> {eroare}
@@ -177,12 +327,15 @@ export default function Auth({ onLoginSuccess }) {
                 {/* Tip cont */}
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase' }}>Tipul Contului</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <button type="button" onClick={() => setRol('SUBCONTRACTOR')} style={{ padding: '14px', borderRadius: '12px', border: `2px solid ${rol === 'SUBCONTRACTOR' ? '#2F6FED' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'SUBCONTRACTOR' ? 'rgba(47,111,237,0.1)' : '#1e293b', color: rol === 'SUBCONTRACTOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                    <button type="button" onClick={() => setRol('SUBCONTRACTOR')} style={{ padding: '14px 8px', borderRadius: '12px', border: `2px solid ${rol === 'SUBCONTRACTOR' ? '#2F6FED' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'SUBCONTRACTOR' ? 'rgba(47,111,237,0.1)' : '#1e293b', color: rol === 'SUBCONTRACTOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
                       👷 Subcontractor
                     </button>
-                    <button type="button" onClick={() => setRol('DEZVOLTATOR')} style={{ padding: '14px', borderRadius: '12px', border: `2px solid ${rol === 'DEZVOLTATOR' ? '#a855f7' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'DEZVOLTATOR' ? 'rgba(168,85,247,0.1)' : '#1e293b', color: rol === 'DEZVOLTATOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}>
+                    <button type="button" onClick={() => setRol('DEZVOLTATOR')} style={{ padding: '14px 8px', borderRadius: '12px', border: `2px solid ${rol === 'DEZVOLTATOR' ? '#a855f7' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'DEZVOLTATOR' ? 'rgba(168,85,247,0.1)' : '#1e293b', color: rol === 'DEZVOLTATOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
                       🏢 Dezvoltator
+                    </button>
+                    <button type="button" onClick={() => setRol('FURNIZOR')} style={{ padding: '14px 8px', borderRadius: '12px', border: `2px solid ${rol === 'FURNIZOR' ? '#FF9E2C' : 'rgba(255,255,255,0.06)'}`, backgroundColor: rol === 'FURNIZOR' ? 'rgba(255,158,44,0.1)' : '#1e293b', color: rol === 'FURNIZOR' ? '#fff' : '#64748b', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                      📦 Furnizor
                     </button>
                   </div>
                 </div>
@@ -285,17 +438,39 @@ export default function Auth({ onLoginSuccess }) {
               </div>
             )}
 
+            {!isLogin && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12.5px', color: '#94a3b8', cursor: 'pointer', lineHeight: 1.5 }}>
+                <input type="checkbox" checked={termeniAcceptati} onChange={e => setTermeniAcceptati(e.target.checked)} style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px', accentColor: '#2F6FED', cursor: 'pointer' }} />
+                <span>
+                  Am citit și sunt de acord cu{' '}
+                  <span onClick={(e) => { e.preventDefault(); setModalLegal('termeni'); }} style={{ color: '#5B93FF', fontWeight: '600', cursor: 'pointer' }}>Termenii și Condițiile</span>
+                  {' '}și{' '}
+                  <span onClick={(e) => { e.preventDefault(); setModalLegal('confidentialitate'); }} style={{ color: '#5B93FF', fontWeight: '600', cursor: 'pointer' }}>Politica de Confidențialitate</span>.
+                </span>
+              </label>
+            )}
+
             <button type="submit" disabled={seIncarca} style={{ background: 'linear-gradient(135deg, #2F6FED 0%, #1D4FC4 100%)', color: '#fff', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '700', fontSize: '15px', cursor: seIncarca ? 'not-allowed' : 'pointer', opacity: seIncarca ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               {seIncarca ? 'Se procesează...' : isLogin ? 'Intră în cont' : 'Creează cont'}
               <ArrowRight size={16} />
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: '28px' }}>
+          {isLogin && (
+            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+              <button onClick={() => setEcranActiv('uita-parola')} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12.5px', fontWeight: '600', cursor: 'pointer' }}>
+                Ai uitat parola?
+              </button>
+            </div>
+          )}
+
+          <div style={{ textAlign: 'center', marginTop: '18px' }}>
             <button onClick={schimbaModul} style={{ background: 'none', border: 'none', color: '#2F6FED', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
               {isLogin ? 'Nu ai cont? Înregistrează-te acum' : 'Ai deja cont? Conectează-te'}
             </button>
           </div>
+          </>
+          )}
         </div>
 
         <div style={{ display: window.innerWidth < 900 ? 'block' : 'none', textAlign: 'center', marginTop: '24px' }}>
@@ -303,6 +478,9 @@ export default function Auth({ onLoginSuccess }) {
         </div>
       </div>
       </div>
+
+      {modalLegal === 'termeni' && <LegalModal titlu="Termeni și Condiții" text={TERMENI_TEXT} onClose={() => setModalLegal(null)} />}
+      {modalLegal === 'confidentialitate' && <LegalModal titlu="Politica de Confidențialitate" text={CONFIDENTIALITATE_TEXT} onClose={() => setModalLegal(null)} />}
     </div>
   );
 }

@@ -1,19 +1,23 @@
 import React from 'react';
-import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard, Send } from 'lucide-react';
+import { Building2, HardHat, PlusCircle, Bell, LogOut, Sun, Moon, LineChart, Coins, CreditCard, Send, ShieldAlert, Package } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTema, onToggleTema, t, esteSubcontractor, nrNotificariNecitite }) {
+export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTema, onToggleTema, t, poateOferta, esteDezvoltator, nrNotificariNecitite }) {
+  const esteAdmin = user?.rol === 'ADMIN';
   const allMenuItems = [
     { id: 'index', text: 'Acasă', icon: <Building2 size={16} />, always: true },
     { id: 'santiere', text: 'Proiecte Disponibile', icon: <HardHat size={16} />, always: true },
     { id: 'prospectare', text: 'Prospectare Piață', icon: <LineChart size={16} />, always: true },
     { id: 'adauga_anunt', text: 'Adaugă Anunț', icon: <PlusCircle size={16} />, onlyDezvolator: true },
-    { id: 'ofertele_tale', text: 'Ofertele Tale', icon: <Send size={16} />, onlySubcontractor: true },
+    { id: 'ofertele_tale', text: 'Ofertele Tale', icon: <Send size={16} />, onlyOfertant: true },
+    { id: 'materiale', text: 'Materiale', icon: <Package size={16} />, always: true },
+    { id: 'admin', text: 'Admin', icon: <ShieldAlert size={16} />, onlyAdmin: true },
   ];
 
   const menuItems = allMenuItems.filter(item => {
+    if (item.onlyAdmin) return esteAdmin;
     if (item.always) return true;
-    if (item.onlySubcontractor) return esteSubcontractor;
-    if (item.onlyDezvolator) return !esteSubcontractor;
+    if (item.onlyOfertant) return poateOferta;
+    if (item.onlyDezvolator) return esteDezvoltator;
     return true;
   });
 
@@ -85,7 +89,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
           </button>
 
           {/* Sold token-uri (relevant pentru dezvoltatori, care le consumă la publicare) */}
-          {!esteSubcontractor && typeof user?.tokenuri === 'number' && (
+          {esteDezvoltator && typeof user?.tokenuri === 'number' && (
             <div
               onClick={() => setActiveTab('abonament')}
               title="Token-uri disponibile pentru publicarea de anunțuri — vezi abonamentul"

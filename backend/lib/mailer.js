@@ -44,7 +44,17 @@ async function trimiteEmail({ to, subject, text, html }) {
     console.log(`   ${text.replace(/\n/g, '\n   ')}\n`);
     return { simulat: true };
   }
-  return t.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text, html });
+  try {
+    const info = await t.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text, html });
+    console.log(`📧 Email trimis către ${to} — subiect: "${subject}" (messageId: ${info.messageId})`);
+    return info;
+  } catch (err) {
+    // Logăm eroarea REALĂ de SMTP (cod de autentificare greșit, host
+    // nereachable, timeout etc.) — fără asta, un eșec de trimitere e
+    // aproape imposibil de diagnosticat din partea clientului.
+    console.error(`📧 EROARE la trimiterea emailului către ${to}: ${err.message}`);
+    throw err;
+  }
 }
 
 // Wrapper "sigur" — nu aruncă erori, doar le loghează. Folosit pentru
@@ -135,16 +145,28 @@ async function notificaOfertaStaticaRespinsa({ subcontractor, proiect }) {
   return trimiteEmailSigur({ to: subcontractor.email, subject, text, html });
 }
 
-// ─── Notificare: mesaj nou de chat ────────────────────────────────────────
-async function notificaMesajNou({ destinatar, expeditorNume, proiect, text: continut }) {
-  const subject = `Mesaj nou de la ${expeditorNume} — "${proiect.titlu}"`;
-  const text = `Salut, ${destinatar.nume}!\n\n${expeditorNume} ți-a trimis un mesaj despre "${proiect.titlu}":\n\n"${continut}"\n\nRăspunde direct pe platformă.`;
-  const html = wrapHtml('Mesaj nou', `
+// ─── Notificare: răspuns nou pe chat-ul de suport ────────────────────────
+async function notificaRaspunsSuport({ destinatar, text: continut }) {
+  const subject = 'Ai primit un răspuns de la echipa ConstructBid';
+  const text = `Salut, ${destinatar.nume}!\n\nEchipa ConstructBid ți-a răspuns la solicitarea de suport:\n\n"${continut}"\n\nPoți continua conversația din chat-ul de suport de pe platformă.`;
+  const html = wrapHtml('Răspuns de la suport', `
       <p>Salut, ${destinatar.nume}!</p>
-      <p><strong>${expeditorNume}</strong> ți-a trimis un mesaj despre <strong>${proiect.titlu}</strong>:</p>
+      <p>Echipa ConstructBid ți-a răspuns la solicitarea de suport:</p>
       <p style="padding: 12px 16px; background: #f1f5f9; border-radius: 8px; font-style: italic;">"${continut}"</p>
-      <p>Răspunde direct pe platformă.</p>`);
+      <p>Poți continua conversația din chat-ul de suport de pe platformă.</p>`);
   return trimiteEmailSigur({ to: destinatar.email, subject, text, html });
+}
+
+// ─── Cod de resetare parolă ────────────────────────────────────────────────
+async function trimiteCodResetareParola(email, nume, cod) {
+  const subject = 'Codul tău de resetare a parolei — ConstructBid';
+  const text = `Salut, ${nume}!\n\nAi cerut resetarea parolei contului tău ConstructBid. Codul tău este: ${cod}\n\nCodul expiră în 15 minute. Dacă nu tu ai cerut acest lucru, poți ignora acest email — parola ta rămâne neschimbată.`;
+  const html = wrapHtml('Resetează-ți parola', `
+      <p>Salut, ${nume}!</p>
+      <p>Ai cerut resetarea parolei contului tău ConstructBid. Codul tău este:</p>
+      <p style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: ${CULOARE_ACCENT};">${cod}</p>
+      <p style="color: #64748b; font-size: 13px;">Codul expiră în 15 minute. Dacă nu tu ai cerut acest lucru, poți ignora acest email — parola ta rămâne neschimbată.</p>`);
+  return trimiteEmail({ to: email, subject, text, html });
 }
 
 function genereazaCod() {
@@ -153,6 +175,7 @@ function genereazaCod() {
 
 module.exports = {
   trimiteCodVerificare,
+  trimiteCodResetareParola,
   genereazaCod,
   notificaOfertaNoua,
   notificaOfertaDepasita,
@@ -160,5 +183,5 @@ module.exports = {
   notificaLicitatieFinalizataPierduta,
   notificaOfertaStaticaAcceptata,
   notificaOfertaStaticaRespinsa,
-  notificaMesajNou,
+  notificaRaspunsSuport,
 };

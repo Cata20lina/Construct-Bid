@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Coins, Check, Crown, Zap, Building2, Loader, AlertCircle,
-  ArrowUpCircle, ArrowDownCircle, Gift, History, ShoppingBag,
+  ArrowUpCircle, ArrowDownCircle, Gift, History, ShoppingBag, FileText, Download, CreditCard,
 } from 'lucide-react';
 import {
   apiPlanuriAbonament, apiSoldTokenuri, apiIstoricTokenuri,
   apiUpgradeAbonament, apiCumparaTokenuri,
+  apiCheckoutPachet, apiCheckoutAbonament, apiFacturi, apiDescarcaFacturaPdf,
 } from '../api.js';
 
 const ICON_PLAN = {
@@ -38,6 +39,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
   const [pachete, setPachete] = useState([]);
   const [sold, setSold] = useState(null);
   const [istoric, setIstoric] = useState([]);
+  const [facturi, setFacturi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [eroare, setEroare] = useState('');
   const [actiuneInCurs, setActiuneInCurs] = useState('');
@@ -46,12 +48,13 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
   const incarca = useCallback(() => {
     setLoading(true);
     setEroare('');
-    Promise.all([apiPlanuriAbonament(), apiSoldTokenuri(), apiIstoricTokenuri()])
-      .then(([planuriData, soldData, istoricData]) => {
+    Promise.all([apiPlanuriAbonament(), apiSoldTokenuri(), apiIstoricTokenuri(), apiFacturi().catch(() => ({ facturi: [] }))])
+      .then(([planuriData, soldData, istoricData, facturiData]) => {
         setPlanuri(planuriData.planuri || []);
         setPachete(planuriData.pachete || []);
         setSold(soldData);
         setIstoric(istoricData.tranzactii || []);
+        setFacturi(facturiData.facturi || []);
       })
       .catch(err => setEroare(err.message || 'Eroare la încărcarea datelor de abonament.'))
       .finally(() => setLoading(false));
@@ -59,11 +62,38 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
 
   useEffect(() => { incarca(); }, [incarca]);
 
-  const handleUpgrade = async (planId) => {
+  // ── Revenire de la Stripe Checkout (?plata=succes / ?plata=anulata) ──
+  // SPA-ul nu are rutare proprie, deci Stripe redirecționează cu un query
+  // param simplu pe care îl citim aici, ca să arătăm un mesaj și să curățăm
+  // URL-ul (fără să reîncărcăm pagina).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const plata = params.get('plata');
+    if (!plata) return;
+    if (plata === 'succes') {
+      setMesajSucces('Plata a fost confirmată. Poate dura câteva secunde până apar tokenurile/planul actualizat — reîmprospătăm automat.');
+      setTimeout(incarca, 2500);
+    } else if (plata === 'anulata') {
+      setEroare('Plata a fost anulată. Nu s-a efectuat nicio taxare.');
+    }
+    params.delete('plata');
+    const restUrl = window.location.pathname + (params.toString() ? `?${params}` : '');
+    window.history.replaceState({}, '', restUrl);
+  }, [incarca]);
+
+  const handleUpgrade = async (planId, pretLunar) => {
     setActiuneInCurs(`plan-${planId}`);
     setEroare('');
     setMesajSucces('');
     try {
+      // Planurile plătite trec prin Stripe Checkout — browserul e redirecționat
+      // spre pagina de plată cu cardul, iar activarea planului se face după
+      // confirmarea plății (webhook), nu instant.
+      if (pretLunar > 0) {
+        const { url } = await apiCheckoutAbonament(planId);
+        window.location.href = url;
+        return;
+      }
       const rezultat = await apiUpgradeAbonament(planId);
       setMesajSucces(rezultat.mesaj);
       onSoldActualizat && onSoldActualizat(rezultat.tokenuri);
@@ -81,12 +111,23 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
     setEroare('');
     setMesajSucces('');
     try {
-      const rezultat = await apiCumparaTokenuri(pachetId);
-      setMesajSucces(rezultat.mesaj);
-      onSoldActualizat && onSoldActualizat(rezultat.tokenuri);
-      incarca();
+      const { url } = await apiCheckoutPachet(pachetId);
+      window.location.href = url;
     } catch (err) {
-      setEroare(err.message || 'Nu s-au putut cumpăra tokenurile.');
+      if (err.status === 503) {
+        // Stripe nu e configurat încă (ex: dezvoltare locală, fără cheie) —
+        // rămânem pe fluxul simulat, ca testarea să nu fie blocată.
+        try {
+          const rezultat = await apiCumparaTokenuri(pachetId);
+          setMesajSucces(`${rezultat.mesaj} (plată simulată — Stripe nu e configurat)`);
+          onSoldActualizat && onSoldActualizat(rezultat.tokenuri);
+          incarca();
+        } catch (err2) {
+          setEroare(err2.message || 'Nu s-au putut cumpăra tokenurile.');
+        }
+      } else {
+        setEroare(err.message || 'Nu s-au putut cumpăra tokenurile.');
+      }
     } finally {
       setActiuneInCurs('');
     }
@@ -201,7 +242,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
                 </ul>
 
                 <button
-                  onClick={() => handleUpgrade(plan.id)}
+                  onClick={() => handleUpgrade(plan.id, plan.pretLunar)}
                   disabled={esteCurent || actiuneInCurs === `plan-${plan.id}`}
                   style={{
                     marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
@@ -212,8 +253,8 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
                     cursor: esteCurent ? 'default' : 'pointer',
                   }}
                 >
-                  <ArrowUpCircle size={15} />
-                  {esteCurent ? 'Plan activ' : actiuneInCurs === `plan-${plan.id}` ? 'Se activează...' : 'Activează planul'}
+                  {plan.pretLunar > 0 ? <CreditCard size={15} /> : <ArrowUpCircle size={15} />}
+                  {esteCurent ? 'Plan activ' : actiuneInCurs === `plan-${plan.id}` ? 'Se procesează...' : plan.pretLunar > 0 ? `Plătește ${plan.pretLunar} RON/lună` : 'Activează planul'}
                 </button>
               </Card>
             );
@@ -240,7 +281,7 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
                   backgroundColor: t.bgInput, color: t.textPrincipal, fontSize: '13px', fontWeight: '700', cursor: 'pointer',
                 }}
               >
-                {actiuneInCurs === `pachet-${pachet.id}` ? 'Se procesează...' : `${pachet.pret} RON`}
+                {actiuneInCurs === `pachet-${pachet.id}` ? 'Se procesează...' : `Plătește ${pachet.pret} RON`}
               </button>
             </Card>
           ))}
@@ -257,6 +298,33 @@ export default function AbonamentView({ t, user, onSoldActualizat, onUserActuali
           <div>• Fiecare abonament îți acordă automat, în fiecare lună, pachetul lunar de tokenuri al planului tău.</div>
         </div>
       </Card>
+
+      {/* ── Facturi ── */}
+      {facturi.length > 0 && (
+        <Card t={t}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+            <FileText size={18} style={{ color: t.accent }} />
+            <h3 style={{ fontSize: '16px', fontWeight: '750', margin: 0, color: t.textPrincipal }}>Facturile tale</h3>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {facturi.map(f => (
+              <div key={f.numar} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: `1px solid ${t.border}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '650', color: t.textPrincipal }}>Factură {f.serie}-{f.numar}</div>
+                  <div style={{ fontSize: '12px', color: t.textSecundar }}>{f.descriere}</div>
+                </div>
+                <div style={{ fontFamily: t.fontMono, fontSize: '13.5px', fontWeight: '750', color: t.textPrincipal, flexShrink: 0 }}>{f.suma.toLocaleString()} RON</div>
+                <button
+                  onClick={() => apiDescarcaFacturaPdf(f.numar).catch(err => setEroare(err.message || 'Nu am putut descărca factura.'))}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: t.bgInput, color: t.textSecundar, fontSize: '12px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <Download size={13} /> PDF
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* ── Istoric tranzacții ── */}
       <Card t={t}>

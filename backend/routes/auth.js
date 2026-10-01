@@ -5,7 +5,9 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 const { serializeUserFull, serializeEvaluare } = require('../lib/serialize');
 const { protejat } = require('../middleware/auth');
-const { trimiteCodVerificare, genereazaCod } = require('../lib/mailer');
+const { trimiteCodVerificare, trimiteCodResetareParola, genereazaCod } = require('../lib/mailer');
+const { verificaCuiLaAnaf } = require('./cui');
+const { limiteazaAutentificare, limiteazaCoduriEmail } = require('../middleware/rateLimit');
 
 const DURATA_COD_MS = 15 * 60 * 1000; // 15 minute
 
@@ -15,16 +17,37 @@ const genToken = (user) => jwt.sign(
   { expiresIn: '7d' }
 );
 
-router.post('/register', async (req, res) => {
+router.post('/register', limiteazaAutentificare, async (req, res) => {
   try {
-    const { nume, email, parola, cui, telefon, judet, rol } = req.body;
+    const { nume, email, parola, cui, telefon, judet, rol, termeniAcceptati } = req.body;
     if (!nume || !email || !parola || !cui || !telefon || !judet) {
       return res.status(400).json({ mesaj: 'Toate campurile sunt obligatorii.' });
+    }
+    if (!termeniAcceptati) {
+      return res.status(400).json({ mesaj: 'Trebuie să accepți Termenii și Condițiile și Politica de Confidențialitate pentru a-ți crea un cont.' });
     }
     const exista = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     if (exista) {
       return res.status(409).json({ mesaj: 'Exista deja un cont cu acest email.' });
     }
+
+    // ── Verificare CUI la ANAF, direct la înregistrare ──────────────────────
+    // Blocăm doar dacă ANAF confirmă clar că nu există nicio firmă cu acest
+    // CUI (cineva a inventat un cod fiscal). Dacă ANAF nu răspunde (serviciu
+    // căzut, timeout), NU blocăm înregistrarea — nu e vina utilizatorului că
+    // ANAF e indisponibil, iar contul poate fi verificat ulterior din profil.
+    const cuiCurat = String(cui).replace(/[^0-9]/g, '');
+    let cuiInfo = { gasit: false };
+    try {
+      cuiInfo = await verificaCuiLaAnaf(cuiCurat);
+      if (!cuiInfo.gasit) {
+        return res.status(400).json({ mesaj: `Nu am găsit nicio firmă înregistrată cu CUI ${cuiCurat} la ANAF. Verifică CUI-ul introdus.` });
+      }
+    } catch (e) {
+      console.error('[register] ANAF indisponibil la verificarea CUI, continuăm fără verificare:', e.message);
+      cuiInfo = { gasit: false };
+    }
+
     const parolaHash = await bcrypt.hash(parola, 10);
     const cod = genereazaCod();
     const user = await prisma.user.create({
@@ -35,9 +58,15 @@ router.post('/register', async (req, res) => {
         cui: cui.trim(),
         telefon: telefon.trim(),
         judet,
-        rol: rol === 'DEZVOLTATOR' ? 'DEZVOLTATOR' : 'SUBCONTRACTOR',
+        rol: ['DEZVOLTATOR', 'FURNIZOR'].includes(rol) ? rol : 'SUBCONTRACTOR',
         codVerificare: cod,
         codVerificareExpira: new Date(Date.now() + DURATA_COD_MS),
+        termeniAcceptatiLa: new Date(),
+        ...(cuiInfo.gasit ? {
+          cuiVerificat: !cuiInfo.stareInactiv,
+          cuiDenumireOficiala: cuiInfo.denumire || '',
+          cuiVerificatLa: new Date(),
+        } : {}),
       },
       include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
@@ -57,7 +86,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', limiteazaAutentificare, async (req, res) => {
   try {
     const { email, parola } = req.body;
     if (!email || !parola) {
@@ -73,6 +102,9 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(parola, user.parola);
     if (!ok) {
       return res.status(401).json({ mesaj: 'Email sau parola incorecta.' });
+    }
+    if (user.suspendat) {
+      return res.status(403).json({ mesaj: `Contul tău a fost suspendat.${user.suspendatMotiv ? ` Motiv: ${user.suspendatMotiv}` : ''} Contactează-ne dacă crezi că e o greșeală.` });
     }
     res.json({ token: genToken(user), utilizator: serializeUserFull(user) });
   } catch (err) {
@@ -110,13 +142,14 @@ router.put('/profil', protejat, async (req, res) => {
   }
 });
 
-// ─── PORTOFOLIU (lucrări realizate) — doar SUBCONTRACTOR ─────────────────────
+// ─── PORTOFOLIU — SUBCONTRACTOR (lucrări realizate) și FURNIZOR (catalog de
+//     produse/materiale, refolosind același model) ────────────────────────────
 router.post('/lucrari', protejat, async (req, res) => {
   try {
-    if (req.utilizator.rol !== 'SUBCONTRACTOR') {
-      return res.status(403).json({ mesaj: 'Doar subcontractorii pot adăuga lucrări în portofoliu.' });
+    if (!['SUBCONTRACTOR', 'FURNIZOR'].includes(req.utilizator.rol)) {
+      return res.status(403).json({ mesaj: 'Doar subcontractorii și furnizorii pot adăuga în portofoliu/catalog.' });
     }
-    const { titlu, descriere, an, categorie } = req.body;
+    const { titlu, descriere, an, categorie, pret, unitateMasura } = req.body;
     if (!titlu || !titlu.trim()) {
       return res.status(400).json({ mesaj: 'Titlul lucrării este obligatoriu.' });
     }
@@ -127,6 +160,10 @@ router.post('/lucrari', protejat, async (req, res) => {
         descriere: (descriere || '').trim().slice(0, 600),
         an: an ? Number(an) : null,
         categorie: categorie || '',
+        // Relevante doar pentru catalogul unui FURNIZOR — un subcontractor
+        // pur și simplu nu le trimite, și rămân null.
+        pret: pret !== undefined && pret !== null && pret !== '' ? Number(pret) : null,
+        unitateMasura: unitateMasura ? String(unitateMasura).trim().slice(0, 20) : '',
       },
     });
     const u = await prisma.user.findUnique({
@@ -198,11 +235,11 @@ router.delete('/disponibilitate/:intervalId', protejat, async (req, res) => {
 });
 
 // ─── RECOMANDĂRI / REFERINȚE (contracte încheiate, cu document justificativ) —
-//     doar SUBCONTRACTOR ────────────────────────────────────────────────────
+//     SUBCONTRACTOR și FURNIZOR ────────────────────────────────────────────────
 router.post('/recomandari', protejat, async (req, res) => {
   try {
-    if (req.utilizator.rol !== 'SUBCONTRACTOR') {
-      return res.status(403).json({ mesaj: 'Doar subcontractorii pot adăuga recomandări.' });
+    if (!['SUBCONTRACTOR', 'FURNIZOR'].includes(req.utilizator.rol)) {
+      return res.status(403).json({ mesaj: 'Doar subcontractorii și furnizorii pot adăuga recomandări.' });
     }
     const { categorie, valoareContract, documentUrl, documentNume, descriere } = req.body;
     if (!categorie || !categorie.trim()) {
@@ -291,7 +328,7 @@ router.post('/verifica-cont', protejat, async (req, res) => {
   }
 });
 
-router.post('/retrimite-cod', protejat, async (req, res) => {
+router.post('/retrimite-cod', protejat, limiteazaCoduriEmail, async (req, res) => {
   try {
     if (req.utilizator.verificat) {
       return res.status(400).json({ mesaj: 'Contul este deja verificat.' });
@@ -301,11 +338,111 @@ router.post('/retrimite-cod', protejat, async (req, res) => {
       where: { id: req.utilizator.id },
       data: { codVerificare: cod, codVerificareExpira: new Date(Date.now() + DURATA_COD_MS) },
     });
-    await trimiteCodVerificare(u.email, u.nume, cod);
-    res.json({ mesaj: 'Un cod nou a fost trimis pe email.' });
+
+    // Codul e deja salvat în baza de date la acest punct — nu lăsăm un eșec
+    // de trimitere email (SMTP căzut temporar, rețea etc.) să întoarcă 500,
+    // pentru că utilizatorul tot poate cere din nou codul, iar contul nu
+    // trebuie să rămână blocat din cauza unei probleme tranzitorii de rețea.
+    let emailTrimis = true;
+    try {
+      await trimiteCodVerificare(u.email, u.nume, cod);
+    } catch (e) {
+      emailTrimis = false;
+      console.error('[auth POST /retrimite-cod] eroare trimitere email:', e.message);
+    }
+
+    res.json({
+      mesaj: emailTrimis
+        ? 'Un cod nou a fost trimis pe email.'
+        : 'Codul a fost generat, dar emailul nu a putut fi trimis chiar acum (verifică setările SMTP din .env sau încearcă din nou în câteva secunde).',
+      emailTrimis,
+    });
   } catch (err) {
     console.error('[auth POST /retrimite-cod]', err);
     res.status(500).json({ mesaj: 'Eroare la retrimiterea codului.' });
+  }
+});
+
+// ─── Resetare parolă uitată ──────────────────────────────────────────────
+// Flux în doi pași, cu cod din 6 cifre (la fel ca verificarea de email) —
+// nu link-uri cu token, pentru că frontend-ul e un SPA fără rutare proprie.
+//
+// POST /auth/solicita-resetare { email } — generează codul și îl trimite.
+// Spune explicit dacă emailul nu are cont pe platformă (cerință punctuală) —
+// notă: asta face posibilă enumerarea emailurilor înregistrate (cineva poate
+// încerca adrese la întâmplare și vede care există). Acceptabil pentru un
+// beta cu utilizatori cunoscuți; dacă platforma ajunge publică, ideal ar fi
+// revenit la un mesaj generic, identic indiferent dacă emailul există sau nu.
+router.post('/solicita-resetare', limiteazaCoduriEmail, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ mesaj: 'Introdu adresa de email.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    if (!user) {
+      return res.status(404).json({ mesaj: 'Nu există niciun cont cu acest email.' });
+    }
+
+    const cod = genereazaCod();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { codResetareParola: cod, codResetareParolaExpira: new Date(Date.now() + DURATA_COD_MS) },
+    });
+
+    let emailTrimis = true;
+    try {
+      await trimiteCodResetareParola(user.email, user.nume, cod);
+    } catch (e) {
+      emailTrimis = false;
+      console.error('[auth POST /solicita-resetare] eroare trimitere email:', e.message);
+    }
+
+    res.json({
+      mesaj: emailTrimis
+        ? 'Ți-am trimis un cod de resetare pe email.'
+        : 'Codul a fost generat, dar emailul nu a putut fi trimis chiar acum. Încearcă din nou în câteva secunde.',
+      emailTrimis,
+    });
+  } catch (err) {
+    console.error('[auth POST /solicita-resetare]', err);
+    res.status(500).json({ mesaj: 'Eroare la solicitarea resetării parolei.' });
+  }
+});
+
+// POST /auth/reseteaza-parola { email, cod, parolaNoua } — validează codul
+// și schimbă parola. Nu necesită autentificare (utilizatorul tocmai și-a
+// uitat parola).
+router.post('/reseteaza-parola', limiteazaCoduriEmail, async (req, res) => {
+  try {
+    const { email, cod, parolaNoua } = req.body;
+    if (!email || !cod || !parolaNoua) {
+      return res.status(400).json({ mesaj: 'Email, cod și parola nouă sunt obligatorii.' });
+    }
+    if (parolaNoua.length < 6) {
+      return res.status(400).json({ mesaj: 'Parola trebuie să aibă cel puțin 6 caractere.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+    if (!user || !user.codResetareParola || user.codResetareParola !== String(cod).trim()) {
+      return res.status(400).json({ mesaj: 'Cod de resetare incorect.' });
+    }
+    if (!user.codResetareParolaExpira || user.codResetareParolaExpira.getTime() < Date.now()) {
+      return res.status(400).json({ mesaj: 'Codul de resetare a expirat. Cere unul nou.' });
+    }
+
+    const parolaHash = await bcrypt.hash(parolaNoua, 10);
+    const u = await prisma.user.update({
+      where: { id: user.id },
+      data: { parola: parolaHash, codResetareParola: null, codResetareParolaExpira: null },
+      include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
+    });
+
+    res.json({ token: genToken(u), utilizator: serializeUserFull(u), mesaj: 'Parola a fost schimbată cu succes.' });
+  } catch (err) {
+    console.error('[auth POST /reseteaza-parola]', err);
+    res.status(500).json({ mesaj: 'Eroare la resetarea parolei.' });
   }
 });
 

@@ -10,6 +10,30 @@ datasource db {
 enum Rol {
   SUBCONTRACTOR
   DEZVOLTATOR
+  FURNIZOR
+  ADMIN
+}
+
+enum StatusReclamatie {
+  deschisa
+  in_lucru
+  rezolvata
+  respinsa
+}
+
+// ── Stare cerere de materiale (vezi model CerereMateriale mai jos) ──
+enum StatusCerere {
+  deschisa
+  finalizata
+  anulata
+}
+
+// ── Stare comandă directă din catalog (vezi model ComandaCatalog mai jos) ──
+enum StatusComandaCatalog {
+  in_asteptare
+  confirmata
+  refuzata
+  anulata
 }
 
 enum TipOfertare {
@@ -26,6 +50,11 @@ enum StatusOferta {
   depasita
 }
 
+enum StatusConversatieSuport {
+  deschisa
+  rezolvata
+}
+
 enum TipNotificare {
   oferta
   castigat
@@ -40,14 +69,14 @@ enum PlanAbonament {
 }
 
 model User {
-  id       String @id @default(cuid())
-  email    String @unique
-  parola   String
-  nume     String
-  cui      String
-  telefon  String
-  judet    String
-  rol      Rol    @default(SUBCONTRACTOR)
+  id        String  @id @default(cuid())
+  email     String  @unique
+  parola    String
+  nume      String
+  cui       String
+  telefon   String
+  judet     String
+  rol       Rol     @default(SUBCONTRACTOR)
   verificat Boolean @default(false)
 
   // ── Token-uri platformă — se consumă la publicarea de anunțuri ──
@@ -57,9 +86,13 @@ model User {
   planAbonament         PlanAbonament @default(GRATUIT)
   ultimaAlocareTokenuri DateTime?
 
-  descriere     String  @default("")
+  descriere     String @default("")
   aniExperienta Int?
   nrAngajati    Int?
+
+  // ── Refolosite și de FURNIZOR: pentru un furnizor, categoriiServicii ține
+  //    categoriile de materiale/echipamente, iar judeteServicii ține zonele
+  //    de livrare acoperite. Aceleași coloane, sens diferit în funcție de rol. ──
   categoriiServicii String[] @default([])
   judeteServicii    String[] @default([])
 
@@ -74,9 +107,30 @@ model User {
   cuiDenumireOficiala String    @default("")
   cuiVerificatLa      DateTime?
 
+  // ── Situație financiară — preluată automat de la ANAF (bilanțul anual
+  //    depus de firmă), afișată public pe profil ca semnal de încredere
+  //    pentru cei care decid dacă acceptă o ofertă. ──
+  bilantAn            Int?
+  bilantCifraAfaceri  Float?
+  bilantProfitNet     Float?
+  bilantPierdereNeta  Float?
+  bilantNumarAngajati Int?
+  bilantVerificatLa   DateTime?
+
   // ── Verificare cont prin cod trimis pe email ──
   codVerificare       String?
   codVerificareExpira DateTime?
+
+  // ── Resetare parolă uitată — cod din 6 cifre trimis pe email ──
+  codResetareParola       String?
+  codResetareParolaExpira DateTime?
+
+  // ── Acceptare Termeni și Condiții / Confidențialitate la înregistrare ──
+  termeniAcceptatiLa DateTime?
+
+  // ── Suspendare cont de către un admin (fraudă, abuz etc.) ──
+  suspendat      Boolean @default(false)
+  suspendatMotiv String  @default("")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -87,26 +141,52 @@ model User {
   evaluariPrimite Evaluare[]        @relation("EvaluatUser")
   evaluariDate    Evaluare[]        @relation("EvaluatorUser")
 
-  proiecte          Project[] @relation("DezvoltatorProiecte")
-  proiecteCastigate Project[] @relation("CastigatorProiecte")
-  oferte            Oferta[]
-  mesaje            Mesaj[]
-  notificari        Notificare[]
+  proiecte           Project[]          @relation("DezvoltatorProiecte")
+  proiecteCastigate  Project[]          @relation("CastigatorProiecte")
+  oferte             Oferta[]
+  conversatieSuport  ConversatieSuport?
+  mesajeSuport       MesajSuport[]
+  notificari         Notificare[]
   tranzactiiTokenuri TranzactieToken[]
+  clarificari        Clarificare[]
+  facturi            Factura[]
+
+  reclamatiiFacute  Reclamatie[] @relation("ReclamatiiFacute")
+  reclamatiiPrimite Reclamatie[] @relation("ReclamatiiPrimite")
+
+  // ── Cereri de materiale — postate (dezvoltator/subcontractor) și
+  //    ofertate (furnizor). Flux separat de licitațiile de execuție. ──
+  cereriMateriale CerereMateriale[] @relation("CereriMaterialeCreator")
+  oferteMateriale OfertaMateriale[]
+
+  // ── Comenzi directe din catalog — trimise (cumpărător) și primite (furnizor) ──
+  comenziCatalogFacute  ComandaCatalog[] @relation("ComenziCatalogFacute")
+  comenziCatalogPrimite ComandaCatalog[] @relation("ComenziCatalogPrimite")
 
   @@map("users")
 }
 
+// ── Portofoliu — pentru SUBCONTRACTOR ține lucrări realizate; pentru
+//    FURNIZOR e refolosit ca „catalog” (produse/materiale oferite). ──
 model Lucrare {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   titlu     String
-  descriere String   @default("")
+  descriere String @default("")
   an        Int?
-  categorie String   @default("")
+  categorie String @default("")
+
+  // ── Folosite doar de FURNIZOR (catalog de produse) — irelevante pentru
+  //    portofoliul de lucrări al unui SUBCONTRACTOR, unde rămân null. ──
+  pret          Float?
+  unitateMasura String? @default("")
+
   createdAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
+
+  // ── Comenzi directe primite pe acest produs de catalog (doar FURNIZOR) ──
+  comenziCatalog ComandaCatalog[]
 
   @@map("lucrari")
 }
@@ -144,6 +224,12 @@ model Project {
   //    la un anunț normal, dar sunt înștiințați clar că e un test de piață. ──
   esteProspectare Boolean @default(false)
 
+  // ── Condiții de participare (opțional, setate la publicare) ──
+  termenLimitaOferta DateTime?
+  avansProcent       Int?
+  garantii           String    @default("")
+  experientaMinima   String    @default("")
+
   dezvoltator   User   @relation("DezvoltatorProiecte", fields: [dezvoltatorId], references: [id])
   dezvoltatorId String
 
@@ -163,8 +249,12 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  oferte Oferta[] @relation("OferteProiect")
-  mesaje Mesaj[]
+  oferte      Oferta[]      @relation("OferteProiect")
+  clarificari Clarificare[]
+
+  // ── Cereri de materiale legate de acest proiect (opțional — o cerere
+  //    poate exista și independent de un proiect). ──
+  cereriMateriale CerereMateriale[]
 
   @@map("projects")
 }
@@ -195,27 +285,55 @@ model Oferta {
   @@map("oferte")
 }
 
-model Mesaj {
-  id        String   @id @default(cuid())
-  text      String
+model ConversatieSuport {
+  id     String                  @id @default(cuid())
+  status StatusConversatieSuport @default(deschisa)
+
+  // Un singur fir de suport per utilizator — un mesaj nou îl redeschide.
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  // Momentul ultimei citiri de fiecare parte — mesajele mai noi decât
+  // acesta, trimise de cealaltă parte, sunt „necitite”.
+  cititUserLa  DateTime?
+  cititAdminLa DateTime?
+
+  ultimulMesajLa DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mesaje MesajSuport[]
+
+  @@index([status, ultimulMesajLa])
+  @@map("conversatii_suport")
+}
+
+model MesajSuport {
+  id   String @id @default(cuid())
+  text String
+
+  conversatie   ConversatieSuport @relation(fields: [conversatieId], references: [id], onDelete: Cascade)
+  conversatieId String
+
+  autor   User   @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  autorId String
+
+  // true = răspuns din partea echipei (admin), false = mesajul utilizatorului
+  deLaSuport Boolean @default(false)
+
   createdAt DateTime @default(now())
 
-  proiect   Project @relation(fields: [proiectId], references: [id], onDelete: Cascade)
-  proiectId String
-
-  expeditor   User   @relation(fields: [expeditorId], references: [id])
-  expeditorId String
-
-  @@index([proiectId, createdAt])
-  @@map("mesaje")
+  @@index([conversatieId, createdAt])
+  @@map("mesaje_suport")
 }
 
 model Notificare {
-  id      String        @id @default(cuid())
-  tip     TipNotificare
-  titlu   String
-  mesaj   String
-  citita  Boolean       @default(false)
+  id     String        @id @default(cuid())
+  tip    TipNotificare
+  titlu  String
+  mesaj  String
+  citita Boolean       @default(false)
 
   // Legătură opțională către proiectul/oferta la care se referă, pentru navigare la click
   proiectId String?
@@ -233,23 +351,77 @@ model Notificare {
 // ── Istoricul mișcărilor de tokenuri (alocări din abonament, cumpărări,
 //    cheltuieli la publicarea de anunțuri, recompense etc.) ──
 model TranzactieToken {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   tip       String
   suma      Int
   soldDupa  Int
-  descriere String   @default("")
+  descriere String @default("")
 
   // Legătură opțională către proiectul/oferta care a generat mișcarea
   proiectId String?
   ofertaId  String?
 
+  // ── Plată reală prin Stripe (achiziție de tokenuri / upgrade abonament) ──
+  // stripeSessionId e unic, folosit ca idempotency-key la procesarea
+  // webhook-ului, ca să nu creditam de două ori aceeași plată.
+  stripeSessionId     String? @unique
+  stripePaymentStatus String  @default("")
+
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
+
+  factura Factura?
 
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
   @@map("tranzactii_tokenuri")
+}
+
+// ── Factură simplă (PDF), generată pentru fiecare achiziție reală de
+//    tokenuri/abonament. Numerotare secvențială (autoincrement Postgres) —
+//    cerință de bază pentru facturarea din România. ──
+model Factura {
+  numar     Int    @id @default(autoincrement())
+  serie     String @default("CB")
+  suma      Float
+  descriere String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  tranzactie   TranzactieToken? @relation(fields: [tranzactieId], references: [id], onDelete: SetNull)
+  tranzactieId String?          @unique
+
+  createdAt DateTime @default(now())
+
+  @@map("facturi")
+}
+
+// ── Reclamații / raportare probleme — un utilizator poate raporta o
+//    problemă legată de un proiect/ofertă (neplată, lucrare nelivrată,
+//    comportament abuziv etc.), vizibilă și gestionabilă de un admin. ──
+model Reclamatie {
+  id           String           @id @default(cuid())
+  motiv        String
+  descriere    String           @default("")
+  status       StatusReclamatie @default(deschisa)
+  raspunsAdmin String           @default("")
+
+  proiectId String?
+  ofertaId  String?
+
+  raportatDe   User   @relation("ReclamatiiFacute", fields: [raportatDeId], references: [id], onDelete: Cascade)
+  raportatDeId String
+
+  raportatImpotriva   User?   @relation("ReclamatiiPrimite", fields: [raportatImpotrivaId], references: [id], onDelete: SetNull)
+  raportatImpotrivaId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("reclamatii")
 }
 
 // ── Recomandări / referințe — contracte încheiate demonstrate cu document
@@ -274,16 +446,16 @@ model Recomandare {
 //    o ofertă a acestuia a fost acceptată/câștigătoare pe un proiect al său.
 //    O singură evaluare per ofertă (ofertaId e unic). ──
 model Evaluare {
-  id            String   @id @default(cuid())
+  id            String @id @default(cuid())
   scor          Int
-  comentariu    String   @default("")
-  proiectTitlu  String   @default("")
-  evaluatorNume String   @default("")
+  comentariu    String @default("")
+  proiectTitlu  String @default("")
+  evaluatorNume String @default("")
 
   ofertaId  String @unique
   proiectId String @default("")
 
-  evaluator   User?  @relation("EvaluatorUser", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  evaluator   User?   @relation("EvaluatorUser", fields: [evaluatorId], references: [id], onDelete: SetNull)
   evaluatorId String?
 
   evaluat   User   @relation("EvaluatUser", fields: [evaluatId], references: [id], onDelete: Cascade)
@@ -293,4 +465,165 @@ model Evaluare {
 
   @@index([evaluatId, createdAt])
   @@map("evaluari")
+}
+
+// ── Clarificări — întrebări publice puse de ofertanți pe pagina unui
+//    proiect, cu răspuns oficial de la dezvoltator. Vizibile tuturor. ──
+model Clarificare {
+  id        String    @id @default(cuid())
+  intrebare String
+  raspuns   String?
+  raspunsLa DateTime?
+
+  proiect   Project @relation(fields: [proiectId], references: [id], onDelete: Cascade)
+  proiectId String
+
+  autor   User   @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  autorId String
+
+  createdAt DateTime @default(now())
+
+  @@index([proiectId, createdAt])
+  @@map("clarificari")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CERERI DE MATERIALE — fluxul separat pentru furnizori. Un dezvoltator
+// sau un subcontractor (care are nevoie de materiale/echipamente, pentru
+// un proiect existent sau independent) postează o cerere cu unul sau mai
+// multe articole. Furnizorii licitează cu preț/termen PE ARTICOL, iar cel
+// care a creat cererea poate accepta oferte diferite pentru articole
+// diferite (ex: cimentul de la un furnizor, gresia de la altul). ──────────
+// ═══════════════════════════════════════════════════════════════════════
+
+model CerereMateriale {
+  id           String       @id @default(cuid())
+  titlu        String
+  descriere    String       @default("")
+  judet        String
+  oras         String       @default("")
+  termenLimita DateTime?
+  status       StatusCerere @default(deschisa)
+
+  // Legătură opțională către un proiect existent — dă context (locație,
+  // dezvoltator) dar nu e obligatorie: oricine are nevoie de materiale
+  // poate posta o cerere independentă.
+  proiect   Project? @relation(fields: [proiectId], references: [id], onDelete: SetNull)
+  proiectId String?
+
+  creatDe   User   @relation("CereriMaterialeCreator", fields: [creatDeId], references: [id], onDelete: Cascade)
+  creatDeId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articole CerereArticol[]
+  oferte   OfertaMateriale[]
+
+  @@index([status, createdAt])
+  @@index([judet, status])
+  @@map("cereri_materiale")
+}
+
+// Un articol/produs cerut în cadrul unei cereri (ex: "Ciment Portland CEM
+// II 42.5R", cantitate 40, unitate "to"). Câștigătorul e reținut direct pe
+// articol, ca să poată fi diferit furnizor per articol.
+model CerereArticol {
+  id            String @id @default(cuid())
+  denumire      String
+  cantitate     Float
+  unitateMasura String @default("buc")
+  specificatii  String @default("")
+
+  cerere   CerereMateriale @relation(fields: [cerereId], references: [id], onDelete: Cascade)
+  cerereId String
+
+  ofertaArticolCastigatoare   OfertaArticol? @relation("ArticolCastigator", fields: [ofertaArticolCastigatoareId], references: [id], onDelete: SetNull)
+  ofertaArticolCastigatoareId String?        @unique
+
+  createdAt DateTime @default(now())
+
+  ofertaArticole OfertaArticol[] @relation("OfertaArticolePeCerereArticol")
+
+  @@map("cerere_articole")
+}
+
+// Oferta unui furnizor pentru o cerere — "plicul" în care intră prețurile
+// lui pe fiecare articol la care alege să răspundă (nu trebuie să acopere
+// toate articolele cererii).
+model OfertaMateriale {
+  id            String  @id @default(cuid())
+  mesaj         String  @default("")
+  termenLivrare Int
+  activa        Boolean @default(true)
+
+  cerere   CerereMateriale @relation(fields: [cerereId], references: [id], onDelete: Cascade)
+  cerereId String
+
+  furnizor   User   @relation(fields: [furnizorId], references: [id])
+  furnizorId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articole OfertaArticol[]
+
+  @@index([cerereId, furnizorId])
+  @@map("oferte_materiale")
+}
+
+// Prețul unui furnizor pentru UN SINGUR articol din cerere. Poate fi
+// declarat câștigător independent de celelalte articole din aceeași ofertă.
+model OfertaArticol {
+  id                String  @id @default(cuid())
+  pretUnitar        Float
+  cantitateOfertata Float?
+  acceptat          Boolean @default(false)
+
+  oferta   OfertaMateriale @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  ofertaId String
+
+  cerereArticol   CerereArticol @relation("OfertaArticolePeCerereArticol", fields: [cerereArticolId], references: [id], onDelete: Cascade)
+  cerereArticolId String
+
+  cerereArticolCastigator CerereArticol? @relation("ArticolCastigator")
+
+  createdAt DateTime @default(now())
+
+  @@index([cerereArticolId])
+  @@index([ofertaId])
+  @@map("oferta_articole")
+}
+
+// ── Comandă directă pe un produs din Catalog — spre deosebire de o Cerere
+//    de Materiale (deschisă, mai mulți furnizori licitează), aici cumpărătorul
+//    comandă direct la furnizorul care a listat produsul, la prețul afișat.
+//    Furnizorul confirmă sau refuză; nimeni altcineva nu e implicat. Prețul/
+//    denumirea sunt "instantaneu" (snapshot) la momentul comenzii, ca istoricul
+//    să rămână corect chiar dacă furnizorul modifică ulterior catalogul. ──
+model ComandaCatalog {
+  id             String               @id @default(cuid())
+  denumireProdus String
+  pretUnitar     Float
+  unitateMasura  String               @default("buc")
+  cantitate      Float
+  mesaj          String               @default("")
+  status         StatusComandaCatalog @default(in_asteptare)
+  motivRefuz     String               @default("")
+
+  produs   Lucrare? @relation(fields: [produsId], references: [id], onDelete: SetNull)
+  produsId String?
+
+  cumparator   User   @relation("ComenziCatalogFacute", fields: [cumparatorId], references: [id], onDelete: Cascade)
+  cumparatorId String
+
+  furnizor   User   @relation("ComenziCatalogPrimite", fields: [furnizorId], references: [id])
+  furnizorId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([furnizorId, status])
+  @@index([cumparatorId, status])
+  @@map("comenzi_catalog")
 }

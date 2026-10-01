@@ -1,0 +1,16 @@
+# Netlify găzduiește doar frontend-ul (React + Vite). Backend-ul (Express,
+# socket.io, Prisma) rulează separat, pe Render — adresa lui e în
+# frontend/.env.production (VITE_API_URL).
+[build]
+  base    = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Aplicație cu o singură pagină: orice adresă servește index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

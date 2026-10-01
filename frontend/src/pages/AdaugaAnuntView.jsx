@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
 import {
   PlusCircle, Building2, Banknote, MapPin, Calendar,
-  FileText, ChevronRight, Layers, Zap, Wrench, Paintbrush2,
+  FileText, ChevronRight, Layers,
   CheckCircle2, Loader, AlertCircle, Gauge, Lock, Clock, Trophy,
   Coins, Target, Megaphone, Info,
 } from 'lucide-react';
+import { CATEGORII_LUCRARI } from '../constants/categorii.jsx';
 
 // ── Cost în token-uri per tip de anunț (trebuie să corespundă cu backend-ul) ──
 const COST_ANUNT_NORMAL = 5;
 const COST_ANUNT_PROSPECTARE = 3;
 
-const CATEGORII = [
-  { value: 'Structuri',  label: 'Structuri & Betoane',              icon: <Layers size={16} />,      color: '#2F6FED' },
-  { value: 'Instalații', label: 'Instalații (Sanitare/Termice)',    icon: <Wrench size={16} />,      color: '#f59e0b' },
-  { value: 'Electrice',  label: 'Sisteme Electrice & Automatizări', icon: <Zap size={16} />,         color: '#a855f7' },
-  { value: 'Finisaje',   label: 'Finisaje & Amenajări',             icon: <Paintbrush2 size={16} />, color: '#10b981' },
-];
+const CATEGORII = CATEGORII_LUCRARI;
 
 const DATE_GEOGRAFICE = {
   'Alba': ['Alba Iulia', 'Aiud', 'Blaj', 'Sebeș', 'Cugir', 'Ocna Mureș'],
@@ -300,8 +296,62 @@ export default function AdaugaAnuntView({
           </div>
         </FormSection>
 
-        {/* Bloc 3 — Locație */}
-        <FormSection label="3. Locație Șantier" t={t}>
+        {/* Bloc 3 — Condiții de Participare (opțional) */}
+        <FormSection label="3. Condiții de Participare (opțional)" t={t}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelBase}><Clock size={12} /> Termen Limită Depunere Ofertă</label>
+              <input
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                value={formAnunt.termenLimitaOferta || ''}
+                onChange={e => setFormAnunt({ ...formAnunt, termenLimitaOferta: e.target.value })}
+                onFocus={() => setFocusat('termenLimitaOferta')}
+                onBlur={() => setFocusat(null)}
+                style={inputBase('termenLimitaOferta')}
+              />
+            </div>
+            <div>
+              <label style={labelBase}><Coins size={12} /> Avans (%)</label>
+              <input
+                type="number" min="0" max="100"
+                value={formAnunt.avansProcent || ''}
+                onChange={e => setFormAnunt({ ...formAnunt, avansProcent: e.target.value })}
+                onFocus={() => setFocusat('avansProcent')}
+                onBlur={() => setFocusat(null)}
+                placeholder="ex: 20"
+                style={inputBase('avansProcent')}
+              />
+            </div>
+            <div>
+              <label style={labelBase}><FileText size={12} /> Garanții Necesare</label>
+              <input
+                type="text"
+                value={formAnunt.garantii || ''}
+                onChange={e => setFormAnunt({ ...formAnunt, garantii: e.target.value })}
+                onFocus={() => setFocusat('garantii')}
+                onBlur={() => setFocusat(null)}
+                placeholder="ex: Garanție de bună execuție 5%"
+                style={inputBase('garantii')}
+              />
+            </div>
+            <div>
+              <label style={labelBase}><Gauge size={12} /> Experiență Necesară</label>
+              <input
+                type="text"
+                value={formAnunt.experientaMinima || ''}
+                onChange={e => setFormAnunt({ ...formAnunt, experientaMinima: e.target.value })}
+                onFocus={() => setFocusat('experientaMinima')}
+                onBlur={() => setFocusat(null)}
+                placeholder="ex: Minim 3 lucrări similare finalizate"
+                style={inputBase('experientaMinima')}
+              />
+            </div>
+          </div>
+        </FormSection>
+
+        {/* Bloc 4 — Locație */}
+        <FormSection label="4. Locație Șantier" t={t}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelBase}><MapPin size={12} /> Județ</label>
@@ -339,8 +389,8 @@ export default function AdaugaAnuntView({
           </div>
         </FormSection>
 
-        {/* Bloc 4 — Mod de Ofertare (DINAMICĂ vs STATICĂ) */}
-        <FormSection label="4. Modul de Ofertare" t={t}>
+        {/* Bloc 5 — Mod de Ofertare (DINAMICĂ vs STATICĂ) */}
+        <FormSection label="5. Modul de Ofertare" t={t}>
           <div>
             <label style={labelBase}><Gauge size={12} /> Cum vrei să primești oferte?</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -438,8 +488,8 @@ export default function AdaugaAnuntView({
           )}
         </FormSection>
 
-        {/* Bloc 5 — Descriere */}
-        <FormSection label="5. Caiet de Sarcini" t={t}>
+        {/* Bloc 6 — Descriere */}
+        <FormSection label="6. Caiet de Sarcini" t={t}>
           <div>
             <label style={labelBase}><FileText size={12} /> Descriere Tehnică Detaliată</label>
             <textarea

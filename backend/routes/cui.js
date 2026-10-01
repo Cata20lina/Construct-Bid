@@ -3,6 +3,7 @@ const router  = express.Router();
 const prisma  = require('../lib/prisma');
 const { protejat } = require('../middleware/auth');
 const { serializeUserFull } = require('../lib/serialize');
+const { limiteazaCui } = require('../middleware/rateLimit');
 
 // ─── Interogare ANAF (extrasă ca funcție, folosită de ambele rute de mai jos) ──
 // Documentație: https://webservicesp.anaf.ro/PlatitorTvaRest/api/v9/ws/tva
@@ -40,11 +41,56 @@ async function verificaCuiLaAnaf(cuiCurat) {
   };
 }
 
+// ─── Interogare ANAF — bilanț anual (situație financiară) ──────────────────
+// Documentație: https://webservicesp.anaf.ro/bilant?an=AAAA&cui=XXXXXXXX
+// API public, gratuit, fără autentificare. Firmele depun bilanțul anual cu
+// întârziere (de obicei pe la mijlocul anului următor), deci încercăm cel
+// mai recent an plauzibil și coborâm câte un an dacă nu găsim date, până la
+// `anMinim` ani în urmă.
+async function verificaBilantLaAnaf(cuiCurat) {
+  const anCurent = new Date().getFullYear();
+  const anMinim = anCurent - 4;
+
+  for (let an = anCurent - 1; an >= anMinim; an--) {
+    let raspuns;
+    try {
+      raspuns = await fetch(`https://webservicesp.anaf.ro/bilant?an=${an}&cui=${cuiCurat}`);
+    } catch (e) {
+      continue; // problemă de rețea pentru acest an — încercăm anul anterior
+    }
+    if (!raspuns.ok) continue;
+
+    let data;
+    try {
+      data = await raspuns.json();
+    } catch (e) {
+      continue;
+    }
+
+    const indicatori = Array.isArray(data?.i) ? data.i : [];
+    if (indicatori.length === 0) continue; // niciun bilanț depus pentru acest an
+
+    const gasesteIndicator = (denumire) =>
+      indicatori.find((x) => x.val_den_indicator?.trim().toLowerCase() === denumire.toLowerCase())?.val_indicator;
+
+    return {
+      gasit: true,
+      an,
+      cifraAfaceri: gasesteIndicator('Cifra de afaceri neta') ?? null,
+      profitNet: gasesteIndicator('Profit net') ?? null,
+      pierdereNeta: gasesteIndicator('Pierdere neta') ?? null,
+      numarAngajati: gasesteIndicator('Numar mediu de salariati') ?? null,
+    };
+  }
+
+  return { gasit: false };
+}
+
 // ─── GET /api/cui/:cui ──────────────────────────────────────────────────────
 // Verificare publică, fără persistare — folosită la înregistrare (Auth.jsx)
 // pentru a confirma că firma există în registrul fiscal și a auto-completa
 // denumirea oficială, înainte să existe vreun cont creat.
-router.get('/:cui', async (req, res) => {
+router.get('/:cui', limiteazaCui, async (req, res) => {
   try {
     const cuiCurat = String(req.params.cui).replace(/[^0-9]/g, '');
     if (!cuiCurat) {
@@ -70,7 +116,7 @@ router.get('/:cui', async (req, res) => {
 // interoghează ANAF pentru CUI-ul din profilul utilizatorului autentificat și,
 // dacă firma e găsită (și activă fiscal), salvează rezultatul pe profil —
 // setează `cuiVerificat`, `cuiDenumireOficiala` și `cuiVerificatLa`.
-router.post('/verifica', protejat, async (req, res) => {
+router.post('/verifica', protejat, limiteazaCui, async (req, res) => {
   try {
     const cuiCurat = String(req.utilizator.cui || '').replace(/[^0-9]/g, '');
     if (!cuiCurat) {
@@ -82,17 +128,35 @@ router.post('/verifica', protejat, async (req, res) => {
       return res.status(404).json({ mesaj: `Nu am găsit nicio firmă înregistrată cu CUI ${cuiCurat} la ANAF.`, gasit: false });
     }
 
+    // Situația financiară e un „bonus" — dacă interogarea de bilanț eșuează
+    // sau nu găsește niciun bilanț depus, nu blocăm verificarea CUI-ului
+    // (care rămâne valabilă și utilă de una singură).
+    let bilant = { gasit: false };
+    try {
+      bilant = await verificaBilantLaAnaf(cuiCurat);
+    } catch (e) {
+      console.error('[cui POST /verifica] eroare la interogarea bilanțului ANAF:', e.message);
+    }
+
     const u = await prisma.user.update({
       where: { id: req.utilizator.id },
       data: {
         cuiVerificat: !rezultat.stareInactiv,
         cuiDenumireOficiala: rezultat.denumire,
         cuiVerificatLa: new Date(),
+        ...(bilant.gasit ? {
+          bilantAn: bilant.an,
+          bilantCifraAfaceri: bilant.cifraAfaceri,
+          bilantProfitNet: bilant.profitNet,
+          bilantPierdereNeta: bilant.pierdereNeta,
+          bilantNumarAngajati: bilant.numarAngajati,
+          bilantVerificatLa: new Date(),
+        } : {}),
       },
       include: { lucrari: true, disponibilitati: true },
     });
 
-    res.json({ ...rezultat, utilizator: serializeUserFull(u) });
+    res.json({ ...rezultat, bilant, utilizator: serializeUserFull(u) });
   } catch (err) {
     if (err.message === 'ANAF_INDISPONIBIL') {
       return res.status(502).json({ mesaj: 'Serviciul ANAF nu a răspuns. Încearcă din nou mai târziu.' });
@@ -103,3 +167,5 @@ router.post('/verifica', protejat, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.verificaCuiLaAnaf = verificaCuiLaAnaf;
+module.exports.verificaBilantLaAnaf = verificaBilantLaAnaf;

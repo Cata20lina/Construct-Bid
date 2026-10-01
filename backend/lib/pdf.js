@@ -63,4 +63,42 @@ function sectiune(doc, titlu, randuri) {
   doc.moveDown(1);
 }
 
-module.exports = { genereazaContractPdf };
+// ─── Generare PDF — factură simplă ────────────────────────────────────────
+// Document de bază pentru o achiziție reală (tokenuri/abonament), cu
+// numerotare secvențială. Nu implementează e-Factura (RO), care e un proces
+// separat, de integrare cu SPV/ANAF — asta e o factură simplă, suficientă
+// pentru evidența internă și pentru client.
+function genereazaFacturaPdf({ factura, utilizator }) {
+  const doc = new PDFDocument({ margin: 56, size: 'A4' });
+
+  doc.fontSize(20).fillColor('#0f172a').text('ConstructBid', { continued: true })
+     .fillColor('#2F6FED').text(' — Factură');
+  doc.moveDown(0.3);
+  doc.fontSize(9).fillColor('#64748b').text(`Serie ${factura.serie}, nr. ${factura.numar} — emisă la ${new Date(factura.createdAt).toLocaleString('ro-RO')}`);
+  doc.moveDown(1.2);
+  doc.strokeColor('#e2e8f0').moveTo(56, doc.y).lineTo(539, doc.y).stroke();
+  doc.moveDown(1);
+
+  sectiune(doc, 'Client', [
+    ['Denumire', `${utilizator.nume} (CUI ${utilizator.cui})`],
+    ['Contact', `${utilizator.email} · ${utilizator.telefon}`],
+    ['Județ', utilizator.judet],
+  ]);
+
+  sectiune(doc, 'Detalii', [
+    ['Descriere', factura.descriere],
+    ['Sumă plătită', `${factura.suma.toLocaleString()} RON`],
+  ]);
+
+  doc.moveDown(1);
+  doc.fontSize(8.5).fillColor('#94a3b8').text(
+    'Document generat automat de platforma ConstructBid, ca evidență a plății efectuate. Nu constituie factură fiscală '
+    + 'electronică (e-Factura/SPV) — pentru evidența fiscală oficială, consultă contabilul firmei tale.',
+    { align: 'left' }
+  );
+
+  doc.end();
+  return doc;
+}
+
+module.exports = { genereazaContractPdf, genereazaFacturaPdf };

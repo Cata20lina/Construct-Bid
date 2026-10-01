@@ -5,17 +5,11 @@ const { protejat, doarRol } = require('../middleware/auth');
 const { programeazaFinalizare } = require('../services/licitatie');
 const { serializeProject } = require('../lib/serialize');
 const { geocodeazaAdresa } = require('../lib/geocode');
-const { COSTURI } = require('../lib/tokenEconomie');
 
 const MINI_SELECT = { id: true, nume: true, judet: true, cui: true };
 
-// ── Cost în token-uri la publicarea unui anunț ──
-// Un anunț de "prospectare piață" costă mai puțin (nu e o subcontractare
-// fermă, ci un test de cerere pe piață), dar tot consumă token-uri.
-// (valorile sunt centralizate în lib/tokenEconomie.js, ca să se potrivească
-// cu ce e afișat pe pagina de Abonament)
-const COST_ANUNT_NORMAL = COSTURI.POSTARE_ANUNT;
-const COST_ANUNT_PROSPECTARE = COSTURI.POSTARE_ANUNT_PROSPECTARE;
+const COST_ANUNT_NORMAL = 5;
+const COST_ANUNT_PROSPECTARE = 3;
 
 // ─── GET /api/projects ────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -79,10 +73,24 @@ router.post('/', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
       urgent, zile, deadline, categorie,
       tipOfertare, licitatieStart, licitatieEnd,
       esteProspectare,
+      termenLimitaOferta, avansProcent, garantii, experientaMinima,
     } = req.body;
 
     if (!titlu || !descriere || !locatie || !buget || !zile) {
       return res.status(400).json({ mesaj: 'Câmpurile titlu, descriere, locatie, buget și zile sunt obligatorii.' });
+    }
+
+    // ── Condiții de participare (opționale) ──
+    let termenLimitaOfertaData = null;
+    if (termenLimitaOferta) {
+      termenLimitaOfertaData = new Date(termenLimitaOferta);
+      if (Number.isNaN(termenLimitaOfertaData.getTime())) {
+        return res.status(400).json({ mesaj: 'Termenul limită de depunere a ofertei este invalid.' });
+      }
+    }
+    let avansProcentData = null;
+    if (avansProcent !== undefined && avansProcent !== null && avansProcent !== '') {
+      avansProcentData = Math.max(0, Math.min(100, Number(avansProcent) || 0));
     }
 
     const prospectareFlag = !!esteProspectare;
@@ -116,25 +124,12 @@ router.post('/', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
 
     const coordonate = await geocodeazaAdresa(`${locatie}${judet ? ', ' + judet : ''}, România`);
 
-    // Scădem token-urile, înregistrăm mișcarea în istoric și creăm anunțul
-    // atomic — dacă unul eșuează, nu se consumă token-uri fără să existe
-    // anunțul, și invers.
-    const soldDupaConsum = (req.utilizator.tokenuri ?? 0) - costTokenuri;
-    const [utilizatorActualizat, , proiect] = await prisma.$transaction([
+    // Scădem token-urile și creăm anunțul atomic — dacă unul eșuează, nu se
+    // consumă token-uri fără să existe anunțul, și invers.
+    const [utilizatorActualizat, proiect] = await prisma.$transaction([
       prisma.user.update({
         where: { id: req.utilizator.id },
         data: { tokenuri: { decrement: costTokenuri } },
-      }),
-      prisma.tranzactieToken.create({
-        data: {
-          userId: req.utilizator.id,
-          tip: prospectareFlag ? 'CHELTUIALA_ANUNT_PROSPECTARE' : 'CHELTUIALA_ANUNT',
-          suma: -costTokenuri,
-          soldDupa: soldDupaConsum,
-          descriere: prospectareFlag
-            ? `Publicare anunț de prospectare piață — "${titlu}"`
-            : `Publicare anunț — "${titlu}"`,
-        },
       }),
       prisma.project.create({
         data: {
@@ -151,6 +146,10 @@ router.post('/', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
           tipOfertare: tip,
           licitatieStart: startDate,
           licitatieEnd: endDate,
+          termenLimitaOferta: termenLimitaOfertaData,
+          avansProcent: avansProcentData,
+          garantii: garantii ? String(garantii).slice(0, 500) : '',
+          experientaMinima: experientaMinima ? String(experientaMinima).slice(0, 300) : '',
         },
         include: { dezvoltator: { select: MINI_SELECT } },
       }),
@@ -181,12 +180,21 @@ router.put('/:id', protejat, doarRol('DEZVOLTATOR'), async (req, res) => {
     }
 
     const data = {};
-    const campuriPermise = ['titlu', 'descriere', 'locatie', 'judet', 'oras', 'buget', 'bugetValoare', 'urgent', 'zile', 'deadline', 'categorie', 'activ'];
+    const campuriPermise = [
+      'titlu', 'descriere', 'locatie', 'judet', 'oras', 'buget', 'bugetValoare', 'urgent', 'zile', 'deadline', 'categorie', 'activ',
+      'termenLimitaOferta', 'avansProcent', 'garantii', 'experientaMinima',
+    ];
     campuriPermise.forEach(camp => {
       if (req.body[camp] !== undefined) {
-        if (camp === 'deadline') data.deadline = req.body.deadline ? new Date(req.body.deadline) : null;
-        else if (camp === 'bugetValoare') data.bugetValoare = req.body.bugetValoare === '' ? null : Number(req.body.bugetValoare);
+        if (camp === 'deadline' || camp === 'termenLimitaOferta') {
+          data[camp] = req.body[camp] ? new Date(req.body[camp]) : null;
+        } else if (camp === 'bugetValoare') data.bugetValoare = req.body.bugetValoare === '' ? null : Number(req.body.bugetValoare);
         else if (camp === 'zile') data.zile = Number(req.body.zile);
+        else if (camp === 'avansProcent') {
+          data.avansProcent = req.body.avansProcent === '' || req.body.avansProcent === null
+            ? null
+            : Math.max(0, Math.min(100, Number(req.body.avansProcent) || 0));
+        }
         else data[camp] = req.body[camp];
       }
     });

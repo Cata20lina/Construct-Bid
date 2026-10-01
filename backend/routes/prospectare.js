@@ -11,7 +11,7 @@ const MINI_SELECT = { id: true, nume: true, judet: true, cui: true };
 // active, pe care încă NU au ofertat — punctate după cât de bine se potrivesc
 // cu profilul lor: categorii de servicii, județe acoperite, experiență reală
 // din portofoliu, disponibilitate în timp și anvergura firmei vs bugetul proiectului.
-router.get('/oportunitati', protejat, doarRol('SUBCONTRACTOR'), async (req, res) => {
+router.get('/oportunitati', protejat, doarRol('SUBCONTRACTOR', 'FURNIZOR'), async (req, res) => {
   try {
     const user = req.utilizator;
 
@@ -21,9 +21,6 @@ router.get('/oportunitati', protejat, doarRol('SUBCONTRACTOR'), async (req, res)
     });
     const proiecteOfertate = new Set(oferteProprii.map(o => o.proiectId));
 
-    // Doar proiecte "adevărate" — anunțurile de prospectare piață au propria
-    // secțiune dedicată (nu presupun o comandă fermă) și nu trebuie recomandate
-    // aici ca oportunități de subcontractare.
     const proiecte = await prisma.project.findMany({
       where: { activ: true, esteProspectare: false },
       include: {

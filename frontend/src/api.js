@@ -94,6 +94,24 @@ export async function apiRetrimiteCodVerificare() {
   return handleResponse(res);
 }
 
+export async function apiSolicitaResetareParola(email) {
+  const res = await fetch(`${API_URL}/auth/solicita-resetare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiReseteazaParola(email, cod, parolaNoua) {
+  const res = await fetch(`${API_URL}/auth/reseteaza-parola`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, cod, parolaNoua }),
+  });
+  return handleResponse(res);
+}
+
 // Re-verifică CUI-ul din profilul contului autentificat (persistă rezultatul)
 export async function apiVerificaCuiProfil() {
   const res = await fetch(`${API_URL}/cui/verifica`, {
@@ -367,5 +385,341 @@ export async function apiCumparaTokenuri(pachetId) {
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ pachetId }),
   });
+  return handleResponse(res);
+}
+
+// Plată reală cu cardul (Stripe Checkout) — întoarce { url } spre care
+// browserul trebuie redirecționat.
+export async function apiCheckoutPachet(pachetId) {
+  const res = await fetch(`${API_URL}/tokenuri/checkout-pachet`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ pachetId }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiCheckoutAbonament(plan) {
+  const res = await fetch(`${API_URL}/tokenuri/checkout-abonament`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ plan }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiFacturi() {
+  const res = await fetch(`${API_URL}/tokenuri/facturi`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiDescarcaFacturaPdf(numar) {
+  const res = await fetch(`${API_URL}/tokenuri/facturi/${numar}/pdf`, { headers: authHeaders() });
+  if (!res.ok) {
+    let mesaj = `Eroare server (${res.status})`;
+    try { mesaj = (await res.json()).mesaj || mesaj; } catch {}
+    throw new Error(mesaj);
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `factura-${numar}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+// ─── Chat de suport ────────────────────────────────────────────────────────
+export async function apiSuport() {
+  const res = await fetch(`${API_URL}/suport`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiSuportTrimite(text) {
+  const res = await fetch(`${API_URL}/suport/mesaje`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ text }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiSuportCitit() {
+  const res = await fetch(`${API_URL}/suport/citit`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuportConversatii(status = '') {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${API_URL}/suport/admin/conversatii${qs}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuportConversatie(id) {
+  const res = await fetch(`${API_URL}/suport/admin/conversatii/${id}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuportRaspunde(id, text) {
+  const res = await fetch(`${API_URL}/suport/admin/conversatii/${id}/mesaje`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ text }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuportCitit(id) {
+  const res = await fetch(`${API_URL}/suport/admin/conversatii/${id}/citit`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuportStatus(id, status) {
+  const res = await fetch(`${API_URL}/suport/admin/conversatii/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse(res);
+}
+
+// ─── Clarificări (întrebări & răspunsuri pe proiect) ───────────────────────
+export async function apiListaClarificari(proiectId) {
+  const res = await fetch(`${API_URL}/clarificari/proiect/${proiectId}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdaugaClarificare(proiectId, intrebare) {
+  const res = await fetch(`${API_URL}/clarificari`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ proiectId, intrebare }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiRaspundeClarificare(id, raspuns) {
+  const res = await fetch(`${API_URL}/clarificari/${id}/raspuns`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ raspuns }),
+  });
+  return handleResponse(res);
+}
+
+// ─── Reclamații (raportare probleme) ───────────────────────────────────────
+export async function apiCreeazaReclamatie(payload) {
+  const res = await fetch(`${API_URL}/reclamatii`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiReclamatiileMele() {
+  const res = await fetch(`${API_URL}/reclamatii/mele`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── Admin ──────────────────────────────────────────────────────────────────
+export async function apiAdminStatistici() {
+  const res = await fetch(`${API_URL}/admin/statistici`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminUtilizatori(filtre = {}) {
+  const params = new URLSearchParams(filtre);
+  const res = await fetch(`${API_URL}/admin/utilizatori?${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminSuspendaUtilizator(id, motiv) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${id}/suspenda`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ motiv }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminReactiveazaUtilizator(id) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${id}/reactiveaza`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminReclamatii(status) {
+  const params = status ? `?status=${status}` : '';
+  const res = await fetch(`${API_URL}/admin/reclamatii${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminActualizeazaReclamatie(id, payload) {
+  const res = await fetch(`${API_URL}/admin/reclamatii/${id}`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminActualizeazaUtilizator(id, payload) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${id}`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminAjusteazaTokenuri(id, suma, motiv) {
+  const res = await fetch(`${API_URL}/admin/utilizatori/${id}/ajusteaza-tokenuri`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ suma, motiv }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminProiecte(filtre = {}) {
+  const params = new URLSearchParams(filtre);
+  const res = await fetch(`${API_URL}/admin/proiecte?${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminDezactiveazaProiect(id) {
+  const res = await fetch(`${API_URL}/admin/proiecte/${id}/dezactiveaza`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminActiveazaProiect(id) {
+  const res = await fetch(`${API_URL}/admin/proiecte/${id}/activeaza`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiAdminStergeProiect(id) {
+  const res = await fetch(`${API_URL}/admin/proiecte/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── Cereri de materiale (furnizori) ────────────────────────────────────────
+export async function apiCereriDeschise(filtre = {}) {
+  const params = new URLSearchParams(filtre);
+  const res = await fetch(`${API_URL}/cereri-materiale?${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiCererileMele() {
+  const res = await fetch(`${API_URL}/cereri-materiale/mele`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiOfertelemeleMateriale() {
+  const res = await fetch(`${API_URL}/cereri-materiale/ofertele-mele`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiCerereDetaliu(id) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${id}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiCreeazaCerere(payload) {
+  const res = await fetch(`${API_URL}/cereri-materiale`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAnuleazaCerere(id) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${id}/anuleaza`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiTrimiteOfertaMateriale(cerereId, payload) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${cerereId}/oferte`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiRetrageOfertaMateriale(cerereId, ofertaId) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${cerereId}/oferte/${ofertaId}`, {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAccetaArticolCerere(cerereId, articolId, ofertaArticolId) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${cerereId}/articole/${articolId}/accepta`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ ofertaArticolId }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiContactFurnizorCerere(cerereId, furnizorId) {
+  const res = await fetch(`${API_URL}/cereri-materiale/${cerereId}/contact/${furnizorId}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── Catalog public de furnizori ─────────────────────────────────────────────
+export async function apiCatalog(filtre = {}) {
+  const params = new URLSearchParams(filtre);
+  const res = await fetch(`${API_URL}/catalog?${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+// ─── Comenzi directe din catalog ─────────────────────────────────────────────
+export async function apiComandaCatalog(produsId, payload) {
+  const res = await fetch(`${API_URL}/catalog/${produsId}/comanda`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function apiComenzileMeleCatalog() {
+  const res = await fetch(`${API_URL}/catalog/comenzile-mele`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiComenziPrimiteCatalog() {
+  const res = await fetch(`${API_URL}/catalog/comenzi-primite`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiConfirmaComandaCatalog(id) {
+  const res = await fetch(`${API_URL}/catalog/comenzi/${id}/confirma`, { method: 'PUT', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiRefuzaComandaCatalog(id, motiv) {
+  const res = await fetch(`${API_URL}/catalog/comenzi/${id}/refuza`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ motiv }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAnuleazaComandaCatalog(id) {
+  const res = await fetch(`${API_URL}/catalog/comenzi/${id}/anuleaza`, { method: 'POST', headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function apiContactComandaCatalog(id) {
+  const res = await fetch(`${API_URL}/catalog/comenzi/${id}/contact`, { headers: authHeaders() });
   return handleResponse(res);
 }

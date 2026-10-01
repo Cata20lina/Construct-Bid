@@ -7,6 +7,7 @@ const COSTURI = {
   POSTARE_ANUNT_PROSPECTARE: 3,  // publicarea unui anunț de "prospectare piață" (cost redus)
   RAPORT_PIATA: 8,       // generarea raportului detaliat de cerere/concurență
   OPORTUNITATI: 4,       // calcularea oportunităților personalizate (subcontractor)
+  POSTARE_CERERE_MATERIALE: 3,   // publicarea unei cereri de materiale (dezvoltator/subcontractor)
 };
 
 // ─── Recompense (în tokenuri) acordate automat participanților la licitații ──
@@ -106,6 +107,54 @@ async function consumaTokenuri({ userId, suma, tip, descriere = '', proiectId, o
   });
 }
 
+// ── Creditare în urma unei plăți Stripe confirmate (webhook) ──────────────
+// Idempotentă: dacă `stripeSessionId` a mai fost procesat (webhook livrat de
+// două ori, ceea ce Stripe face uneori), nu creditează a doua oară — doar
+// întoarce rezultatul existent. Emite și o factură secvențială legată de
+// tranzacție.
+async function crediteazaDinPlataStripe({ userId, suma, tip, descriere, stripeSessionId, sumaPlatitaRon, planAbonament }) {
+  if (!(suma > 0)) throw new Error('Suma de creditat trebuie să fie pozitivă.');
+  if (!stripeSessionId) throw new Error('stripeSessionId este obligatoriu pentru creditare din Stripe.');
+
+  return prisma.$transaction(async (tx) => {
+    const existenta = await tx.tranzactieToken.findUnique({ where: { stripeSessionId } });
+    if (existenta) {
+      return { user: await tx.user.findUnique({ where: { id: userId } }), tranzactie: existenta, dejaProcesata: true };
+    }
+
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('Utilizatorul nu există.');
+
+    const nouSold = user.tokenuri + suma;
+    const dataActualizare = { tokenuri: nouSold };
+    if (planAbonament) {
+      dataActualizare.planAbonament = planAbonament;
+      dataActualizare.ultimaAlocareTokenuri = new Date();
+    }
+    const actualizat = await tx.user.update({ where: { id: userId }, data: dataActualizare });
+
+    const tranzactie = await tx.tranzactieToken.create({
+      data: {
+        userId, tip, suma, soldDupa: nouSold, descriere,
+        stripeSessionId, stripePaymentStatus: 'platit',
+      },
+    });
+
+    if (sumaPlatitaRon > 0) {
+      await tx.factura.create({
+        data: {
+          userId,
+          suma: sumaPlatitaRon,
+          descriere,
+          tranzactieId: tranzactie.id,
+        },
+      });
+    }
+
+    return { user: actualizat, tranzactie, dejaProcesata: false };
+  });
+}
+
 module.exports = {
   COSTURI,
   RECOMPENSE,
@@ -113,4 +162,5 @@ module.exports = {
   asigureTokenuriLunare,
   crediteazaTokenuri,
   consumaTokenuri,
+  crediteazaDinPlataStripe,
 };

@@ -11,6 +11,9 @@ import OfertaDetailView from './pages/OfertaDetailView.jsx';
 import ProfilView from './pages/ProfilView.jsx';
 import AbonamentView from './pages/AbonamentView.jsx';
 import OfertelemTaleView from './pages/OfertelemTaleView.jsx';
+import AdminView from './pages/AdminView.jsx';
+import MaterialeView from './pages/MaterialeView.jsx';
+import SuportChat from './components/SuportChat.jsx';
 
 import {
   getToken, setToken, apiMe, apiListaProiecte, apiCreazaProiect,
@@ -101,6 +104,10 @@ export default function App() {
     licitatieStart: '',
     licitatieEnd: '',
     esteProspectare: false,
+    termenLimitaOferta: '',
+    avansProcent: '',
+    garantii: '',
+    experientaMinima: '',
   });
 
   const t = teme[modTema];
@@ -133,6 +140,8 @@ export default function App() {
   }, []);
 
   const incarcaOferteleMele = useCallback(() => {
+    // Doar subcontractorii licitează pe proiecte de execuție — furnizorii au
+    // propriul flux de oferte, la Cereri de Materiale (fila "Materiale").
     if (user?.rol !== 'SUBCONTRACTOR') return;
     apiOferteleMele()
       .then(data => setOferteleMele(data))
@@ -155,19 +164,26 @@ export default function App() {
     incarcaNotificari();
   }, [user, incarcaProiecte, incarcaAnunturiProspectare, incarcaOferteleMele, incarcaNotificari]);
 
-  // ── Socket: camera personală a utilizatorului + camerele proiectelor proprii,
-  // pentru actualizări de ofertă live pe pagina de detaliu ──
+  // ── Socket: camera personală a utilizatorului + camerele proiectelor
+  // proprii, pentru actualizări de ofertă live pe pagina de detaliu.
+  // Camera personală cere token-ul (serverul ia ID-ul din el) și e refăcută
+  // la reconectare, pentru că socket.io pierde camerele când cade conexiunea. ──
   useEffect(() => {
     if (!user) return;
     const socket = getSocket();
     const userId = user.id || user._id;
+    const intraInCameraPersonala = () => socket.emit('join_user', getToken());
 
-    socket.emit('join_user', userId);
+    intraInCameraPersonala();
+    socket.on('connect', intraInCameraPersonala);
     proiecte
       .filter(p => p.dezvoltator?._id === userId)
       .forEach(p => socket.emit('join_proiect', p._id));
 
-    return () => socket.emit('leave_user', userId);
+    return () => {
+      socket.off('connect', intraInCameraPersonala);
+      socket.emit('leave_user');
+    };
   }, [proiecte, user]);
 
   // ── Notificări persistente: push live prin socket (backend le-a salvat deja în DB) ──
@@ -257,6 +273,10 @@ export default function App() {
         licitatieStart: formAnunt.tipOfertare === 'dinamica' && formAnunt.licitatieStart ? formAnunt.licitatieStart : undefined,
         licitatieEnd: formAnunt.tipOfertare === 'dinamica' ? formAnunt.licitatieEnd : undefined,
         esteProspectare: !!formAnunt.esteProspectare,
+        termenLimitaOferta: formAnunt.termenLimitaOferta || undefined,
+        avansProcent: formAnunt.avansProcent !== '' ? Number(formAnunt.avansProcent) : undefined,
+        garantii: formAnunt.garantii || undefined,
+        experientaMinima: formAnunt.experientaMinima || undefined,
       };
 
       const proiectSalvat = await apiCreazaProiect(payload);
@@ -278,6 +298,7 @@ export default function App() {
         titlu: '', categorie: 'Structuri', bugetMax: '', judet: '', oras: '',
         termenLimita: '', descriere: '', tipOfertare: 'statica', licitatieStart: '', licitatieEnd: '',
         esteProspectare: false,
+        termenLimitaOferta: '', avansProcent: '', garantii: '', experientaMinima: '',
       });
       setSuccessAnunt(true);
       setTimeout(() => {
@@ -327,6 +348,12 @@ export default function App() {
   };
 
   const esteSubcontractor = user?.rol === 'SUBCONTRACTOR';
+  const esteDezvoltator = user?.rol === 'DEZVOLTATOR';
+  const esteFurnizor = user?.rol === 'FURNIZOR';
+  // Doar subcontractorii licitează pe proiecte de execuție. Furnizorii au
+  // propriul flux separat (Cereri de Materiale), fără legătură cu Oferta
+  // de pe proiecte — vezi pagina Materiale.
+  const poateOferta = esteSubcontractor;
 
 
   // ── Ecran de încărcare la verificarea sesiunii ──
@@ -375,7 +402,8 @@ export default function App() {
         modTema={modTema}
         onToggleTema={toggleTema}
         t={t}
-        esteSubcontractor={esteSubcontractor}
+        poateOferta={poateOferta}
+        esteDezvoltator={esteDezvoltator}
         nrNotificariNecitite={notificari.filter(n => !n.citit).length}
       />
 
@@ -407,7 +435,7 @@ export default function App() {
               }
             />
           ) : (
-            <SantiereView t={t} proiecte={proiecte} onSelect={(p) => setProiectSelectat(p)} />
+            <SantiereView t={t} proiecte={proiecte} onSelect={(p) => setProiectSelectat(p)} user={user} />
           )
         )}
 
@@ -449,7 +477,7 @@ export default function App() {
             <ProspectarePiataView
               t={t}
               user={user}
-              esteSubcontractor={esteSubcontractor}
+              esteSubcontractor={poateOferta}
               onSelectProiect={(p) => deschideProiect(p, 'prospectare')}
               anunturiProspectare={anunturiProspectare}
             />
@@ -497,7 +525,7 @@ export default function App() {
             onSoldActualizat={(tokenuriNoi) => {
               if (typeof tokenuriNoi === 'number') {
                 setUser(prev => prev ? { ...prev, tokenuri: tokenuriNoi } : prev);
-              }
+              } 
             }}
             onUserActualizat={() => {
               apiMe().then(data => setUser(data.utilizator)).catch(() => {});
@@ -516,7 +544,18 @@ export default function App() {
             setUser={setUser}
           />
         )}
+
+        {activeTab === 'materiale' && (
+          <MaterialeView t={t} user={user} />
+        )}
+
+        {activeTab === 'admin' && user?.rol === 'ADMIN' && (
+          <AdminView t={t} />
+        )}
       </main>
+
+      {/* Adminii răspund din panoul de administrare, nu din bulă */}
+      {user.rol !== 'ADMIN' && <SuportChat t={t} user={user} />}
     </div>
   );
 }

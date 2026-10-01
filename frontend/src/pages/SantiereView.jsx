@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, MapPin, Calendar, ArrowRight, Filter, RefreshCw, Gauge, Lock, Clock } from 'lucide-react';
+import { Search, MapPin, Calendar, ArrowRight, Filter, RefreshCw, Gauge, Lock, Clock, Sparkles } from 'lucide-react';
+import { CATEGORII_LUCRARI } from '../constants/categorii.jsx';
 
 const DATE_GEOGRAFICE = {
   "București": ["Sector 1", "Sector 2", "Sector 3", "Sector 4", "Sector 5", "Sector 6"],
@@ -10,11 +11,19 @@ const DATE_GEOGRAFICE = {
   "Brașov": ["Brașov", "Făgăraș", "Săcele", "Zărnești", "Râșnov"]
 };
 
-export default function SantiereView({ t, proiecte = [], onSelect }) {
+export default function SantiereView({ t, proiecte = [], onSelect, user }) {
   const [filtruText, setFiltruText] = useState('');
   const [filtruCategorie, setFiltruCategorie] = useState('');
   const [filtruJudet, setFiltruJudet] = useState('');
   const [filtruOras, setFiltruOras] = useState('');
+  const [doarCategoriileMele, setDoarCategoriileMele] = useState(false);
+
+  // ── Filtru "doar categoriile mele" — relevant pentru orice utilizator care
+  //    poate oferta (subcontractor sau furnizor) și și-a setat categoriile
+  //    în profil (categoriiServicii — materiale/echipamente pentru furnizor). ──
+  const categoriileMele = user?.categoriiServicii || [];
+  const poateOferta = user?.rol === 'SUBCONTRACTOR' || user?.rol === 'FURNIZOR';
+  const areCategoriiSetate = poateOferta && categoriileMele.length > 0;
 
   const getCategorieStyle = (cat) => {
     switch(cat) {
@@ -34,8 +43,9 @@ export default function SantiereView({ t, proiecte = [], onSelect }) {
     const meciCategorie = filtruCategorie === '' || p.categorie === filtruCategorie;
     const meciJudet = filtruJudet === '' || p.judet === filtruJudet;
     const meciOras = filtruOras === '' || p.oras === filtruOras;
+    const meciCategoriileMele = !doarCategoriileMele || categoriileMele.includes(p.categorie);
 
-    return meciText && meciCategorie && meciJudet && meciOras;
+    return meciText && meciCategorie && meciJudet && meciOras && meciCategoriileMele;
   });
 
   const reseteazaFiltre = () => {
@@ -43,6 +53,7 @@ export default function SantiereView({ t, proiecte = [], onSelect }) {
     setFiltruCategorie('');
     setFiltruJudet('');
     setFiltruOras('');
+    setDoarCategoriileMele(false);
   };
 
   return (
@@ -75,10 +86,9 @@ export default function SantiereView({ t, proiecte = [], onSelect }) {
             style={{ padding: '11px', borderRadius: '8px', backgroundColor: t.bgInput, border: `1px solid ${t.border}`, color: t.textPrincipal, fontSize: '13px', outline: 'none' }}
           >
             <option value="">Toate Categoriile</option>
-            <option value="Structuri">Structuri & Betoane</option>
-            <option value="Instalații">Instalații (Sanitare/Termice)</option>
-            <option value="Electrice">Sisteme Electrice & Automatizări</option>
-            <option value="Finisaje">Finisaje & Amenajări</option>
+            {CATEGORII_LUCRARI.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
           </select>
 
           <select
@@ -111,6 +121,22 @@ export default function SantiereView({ t, proiecte = [], onSelect }) {
             <RefreshCw size={14} /> Reset
           </button>
         </div>
+
+        {areCategoriiSetate && (
+          <button
+            onClick={() => setDoarCategoriileMele(v => !v)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start',
+              padding: '8px 14px', borderRadius: '20px',
+              border: `1.5px solid ${doarCategoriileMele ? '#2F6FED' : t.border}`,
+              backgroundColor: doarCategoriileMele ? 'rgba(47,111,237,0.1)' : 'transparent',
+              color: doarCategoriileMele ? '#2F6FED' : t.textSecundar,
+              fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <Sparkles size={13} /> Doar din categoriile mele
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>

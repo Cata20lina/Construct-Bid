@@ -12,7 +12,6 @@ const seed = async () => {
     console.log('✅ PostgreSQL conectat');
 
     // Șterge datele vechi (ordinea contează din cauza foreign keys)
-    await prisma.mesaj.deleteMany({});
     await prisma.oferta.deleteMany({});
     await prisma.project.deleteMany({});
     await prisma.disponibilitate.deleteMany({});
@@ -44,6 +43,35 @@ const seed = async () => {
         telefon: '0721000002',
         judet: 'Ilfov',
         rol: 'SUBCONTRACTOR',
+        verificat: true,
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        email: 'furnizor@test.ro',
+        parola: parolaHash,
+        nume: 'MaterialPro Distribuție SRL',
+        cui: 'RO11223344',
+        telefon: '0721000003',
+        judet: 'Cluj',
+        rol: 'FURNIZOR',
+        verificat: true,
+        descriere: 'Furnizor de materiale de construcții și echipamente pentru șantier.',
+        categoriiServicii: ['Materiale de construcții', 'Echipamente'],
+        judeteServicii: ['Cluj', 'Bihor', 'Sălaj'],
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        email: 'admin@test.ro',
+        parola: parolaHash,
+        nume: 'Administrator ConstructBid',
+        cui: 'RO00000000',
+        telefon: '0721000000',
+        judet: 'București',
+        rol: 'ADMIN',
         verificat: true,
       },
     });
@@ -116,6 +144,8 @@ const seed = async () => {
     console.log('Conturi de test:');
     console.log('  📧 dezvoltator@test.ro   | 🔑 parola123 | Rol: DEZVOLTATOR');
     console.log('  📧 subcontractor@test.ro | 🔑 parola123 | Rol: SUBCONTRACTOR');
+    console.log('  📧 furnizor@test.ro      | 🔑 parola123 | Rol: FURNIZOR');
+    console.log('  📧 admin@test.ro         | 🔑 parola123 | Rol: ADMIN');
     console.log('─────────────────────────────────────────\n');
 
     await prisma.$disconnect();

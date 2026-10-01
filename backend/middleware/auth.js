@@ -17,6 +17,9 @@ const protejat = async (req, res, next) => {
     if (!utilizator) {
       return res.status(401).json({ mesaj: 'Utilizatorul nu mai exista.' });
     }
+    if (utilizator.suspendat) {
+      return res.status(403).json({ mesaj: `Contul tău a fost suspendat.${utilizator.suspendatMotiv ? ` Motiv: ${utilizator.suspendatMotiv}` : ''} Contactează-ne dacă crezi că e o greșeală.` });
+    }
 
     // ── Alocare automată a pachetului lunar de tokenuri al abonamentului,
     //    dacă nu a mai fost acordat în luna curentă ──

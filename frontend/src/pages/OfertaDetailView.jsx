@@ -70,6 +70,7 @@ export default function OfertaDetailView({
 
   const esteFinalizata = statusCurent === 'acceptata' || statusCurent === 'respinsa' || statusCurent === 'castigatoare' || statusCurent === 'depasita';
   const subcontractor = oferta.subcontractor || {};
+  const ofertantEsteFurnizor = subcontractor?.rol === 'FURNIZOR';
 
   const handleAccepta = () => {
     onAccepta(oferta._id);
@@ -138,7 +139,7 @@ export default function OfertaDetailView({
                   <Building2 size={20} color="#2F6FED" />
                 </div>
                 <h1 style={{ fontSize: '22px', fontWeight: '850', color: t.textPrincipal, margin: 0 }}>
-                  {subcontractor.nume || 'Subcontractor'}
+                  {subcontractor.nume || (ofertantEsteFurnizor ? 'Furnizor' : 'Subcontractor')}
                 </h1>
               </div>
             </div>
@@ -154,7 +155,7 @@ export default function OfertaDetailView({
             />
             <InfoRow
               icon={<Clock size={15} />}
-              label="Durată Execuție"
+              label={ofertantEsteFurnizor ? 'Termen Livrare' : 'Durată Execuție'}
               value={`${oferta.termenExecutie} zile`}
             />
           </div>
@@ -180,6 +181,43 @@ export default function OfertaDetailView({
                 : 'Fără evaluări'}
             />
           </div>
+
+          {(subcontractor.cuiVerificat || subcontractor.bilant) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px 16px', borderRadius: '12px', backgroundColor: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              {subcontractor.cuiVerificat && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', fontWeight: '700', color: '#10b981' }}>
+                  <ShieldCheck size={15} /> CUI {subcontractor.cui} verificat la ANAF
+                </div>
+              )}
+              {subcontractor.bilant && (
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Situație financiară (bilanț {subcontractor.bilant.an})
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: t.textSecundar }}>Cifră de afaceri</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>
+                        {subcontractor.bilant.cifraAfaceri != null ? `${Number(subcontractor.bilant.cifraAfaceri).toLocaleString()} RON` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: t.textSecundar }}>{subcontractor.bilant.profitNet ? 'Profit net' : 'Pierdere netă'}</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: (subcontractor.bilant.profitNet || 0) > 0 ? '#10b981' : '#f87171' }}>
+                        {(subcontractor.bilant.profitNet || subcontractor.bilant.pierdereNeta) != null
+                          ? `${Number(subcontractor.bilant.profitNet || subcontractor.bilant.pierdereNeta || 0).toLocaleString()} RON`
+                          : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: t.textSecundar }}>Angajați</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: t.textPrincipal }}>{subcontractor.bilant.numarAngajati ?? '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {subcontractor.siteWeb && (
             <a
@@ -237,7 +275,7 @@ export default function OfertaDetailView({
       {oferta.descriere && (
         <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
           <div style={{ padding: '14px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileText size={13} /> Mesajul Subcontractorului
+            <FileText size={13} /> {ofertantEsteFurnizor ? 'Mesajul Furnizorului' : 'Mesajul Subcontractorului'}
           </div>
           <div style={{ padding: '24px' }}>
             <p style={{ color: t.textPrincipal, fontSize: '14px', lineHeight: 1.75, margin: 0, fontStyle: 'italic' }}>
@@ -366,7 +404,7 @@ export default function OfertaDetailView({
             letterSpacing: '1px', color: '#10b981',
             display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            <ShieldCheck size={13} /> Ofertă câștigătoare — Date de Contact Subcontractor
+            <ShieldCheck size={13} /> Ofertă câștigătoare — Date de Contact {ofertantEsteFurnizor ? 'Furnizor' : 'Subcontractor'}
           </div>
 
           <div style={{ padding: '24px' }}>
@@ -422,6 +460,7 @@ export default function OfertaDetailView({
           evaluare={evaluare}
           evaluareLoading={evaluareLoading}
           onEvaluareTrimisa={(noua) => setEvaluare(noua)}
+          esteFurnizor={ofertantEsteFurnizor}
         />
       )}
 
@@ -433,7 +472,7 @@ export default function OfertaDetailView({
 // Card evaluare — permite dezvoltatorului să lase 1-5 stele + comentariu
 // subcontractorului câștigător, o singură dată per ofertă.
 // ─────────────────────────────────────────────────────────────────────────
-function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimisa }) {
+function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimisa, esteFurnizor }) {
   const [scor, setScor] = useState(0);
   const [scorHover, setScorHover] = useState(0);
   const [comentariu, setComentariu] = useState('');
@@ -457,7 +496,7 @@ function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimis
   return (
     <div style={{ backgroundColor: t.bgCard, borderRadius: '16px', border: `1px solid ${t.border}`, overflow: 'hidden', boxShadow: `0 2px 12px ${t.shadow}` }}>
       <div style={{ padding: '14px 24px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgInput, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', color: t.textSecundar, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <MessageSquarePlus size={13} /> Evaluează subcontractorul
+        <MessageSquarePlus size={13} /> {esteFurnizor ? 'Evaluează furnizorul' : 'Evaluează subcontractorul'}
       </div>
       <div style={{ padding: '24px' }}>
         {evaluareLoading ? (
@@ -477,7 +516,7 @@ function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimis
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p style={{ margin: 0, fontSize: '13.5px', color: t.textSecundar }}>
-              Cum a fost colaborarea cu acest subcontractor? Evaluarea ta contribuie la ratingul lui public de pe platformă.
+              Cum a fost colaborarea cu {esteFurnizor ? 'acest furnizor' : 'acest subcontractor'}? Evaluarea ta contribuie la ratingul lui public de pe platformă.
             </p>
             <div style={{ display: 'flex', gap: '4px' }}>
               {[1, 2, 3, 4, 5].map(n => (
@@ -494,7 +533,7 @@ function EvaluareCard({ t, ofertaId, evaluare, evaluareLoading, onEvaluareTrimis
             </div>
             <textarea
               rows={3}
-              placeholder="Comentariu opțional — cum a decurs execuția, respectarea termenelor, calitatea lucrării..."
+              placeholder={esteFurnizor ? 'Comentariu opțional — cum a decurs livrarea, respectarea termenelor, calitatea produselor...' : 'Comentariu opțional — cum a decurs execuția, respectarea termenelor, calitatea lucrării...'}
               value={comentariu}
               onChange={e => setComentariu(e.target.value)}
               style={{ width: '100%', padding: '11px 14px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1.5px solid ${t.border}`, color: t.textPrincipal, fontSize: '13.5px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }}
