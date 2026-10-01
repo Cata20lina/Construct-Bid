@@ -1,0 +1,15 @@
+# Configurația folosită când în Netlify „Base directory” = frontend
+# (atunci Netlify citește netlify.toml din acest folder, nu din rădăcină).
+# Ține-o sincronizată cu ../netlify.toml.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Aplicație cu o singură pagină: orice adresă servește index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
