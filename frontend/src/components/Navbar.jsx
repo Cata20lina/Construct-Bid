@@ -60,7 +60,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onLogout, modTem
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = t.textPrincipal; }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = t.textSecundar; }}
               >
-                {item.icon}
+                <span className="cb-nav-icon" style={{ display: 'flex' }}>{item.icon}</span>
                 <span className="cb-nav-text">{item.text}</span>
                 {isActive && (
                   <span style={{ position: 'absolute', left: '14px', right: '14px', bottom: '-14px', height: '2px', backgroundColor: t.amber, borderRadius: '2px' }} />

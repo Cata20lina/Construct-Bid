@@ -186,17 +186,23 @@ input, select, textarea { min-width: 0; }
 .cb-nav-profil-text { max-width: 180px; }
 .cb-nav-profil-text > div { overflow: hidden; text-overflow: ellipsis; }
 
-/* Laptop: întâi dispare numele firmei de lângă avatar (ocupă cel mai mult),
-   apoi meniul rămâne doar cu iconițe (textul apare ca tooltip). Pragurile
-   sunt măsurate pentru cel mai lung meniu (dezvoltator, cu soldul de tokenuri). */
+/* Laptop: textele rămân, dar mai compacte. Întâi dispare numele firmei de
+   lângă avatar (ocupă cel mai mult) și se micșorează meniul; pe laptopurile
+   înguste dispar și iconițele din meniu, rămâne doar textul. Pragurile sunt
+   măsurate pentru cel mai lung meniu (dezvoltator, cu soldul de tokenuri). */
 @media (max-width: 1499px) {
   .cb-nav-profil-text { display: none; }
+  .cb-nav-desktop { gap: 2px !important; }
+  .cb-nav-desktop button { padding: 7px 10px !important; gap: 6px !important; font-size: 13px !important; }
+  .cb-nav-desktop button > span:last-child { left: 10px !important; right: 10px !important; }
 }
-@media (max-width: 1299px) {
-  .cb-nav-text { display: none; }
+@media (max-width: 1199px) {
+  .cb-nav-icon { display: none !important; }
+  .cb-nav-desktop button { padding: 7px 9px !important; font-size: 12.5px !important; }
 }
+
 /* Tabletă și telefon: meniul se pliază sub butonul ☰ */
-@media (max-width: 1024px) {
+@media (max-width: 1099px) {
   .cb-nav-desktop { display: none !important; }
   .cb-nav-burger { display: flex !important; }
   .cb-nav-mobil { display: flex !important; }
