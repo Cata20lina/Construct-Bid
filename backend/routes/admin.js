@@ -9,6 +9,7 @@ const { creeazaNotificare } = require('../lib/notificari');
 const { recalculeazaRating } = require('../lib/rating');
 const { verificaSiSalveaza } = require('./cui');
 const { stergeDocumenteleContului } = require('../lib/documentePrivate');
+const { verificaTelefon } = require('../lib/telefon');
 const { crediteazaTokenuri, consumaTokenuri, EroareTokeniInsuficienti } = require('../lib/tokenEconomie');
 
 const ROLURI_VALIDE = ['SUBCONTRACTOR', 'DEZVOLTATOR', 'FURNIZOR', 'ADMIN'];
@@ -175,7 +176,12 @@ router.put('/utilizatori/:id', async (req, res) => {
         await stergeDocumenteleContului(req.params.id, req.utilizator);
       }
     }
-    if (telefon !== undefined) data.telefon = String(telefon).trim().slice(0, 30);
+    if (telefon !== undefined) {
+      // Și adminul respectă regula: un singur cont per număr de telefon
+      const verificareTelefon = await verificaTelefon(telefon, req.params.id);
+      if (verificareTelefon.eroare) return res.status(verificareTelefon.status).json({ mesaj: verificareTelefon.eroare });
+      data.telefon = verificareTelefon.telefon;
+    }
     if (judet !== undefined) data.judet = String(judet).trim().slice(0, 60);
     if (rol !== undefined) {
       if (!ROLURI_VALIDE.includes(rol)) return res.status(400).json({ mesaj: 'Rol invalid.' });

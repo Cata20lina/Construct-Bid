@@ -7,6 +7,7 @@ const { serializeUserFull, serializeEvaluare } = require('../lib/serialize');
 const { protejat } = require('../middleware/auth');
 const { trimiteCodVerificare, trimiteCodResetareParola, genereazaCod } = require('../lib/mailer');
 const { verificaCuiLaAnaf, cuiValid } = require('./cui');
+const { verificaTelefon, normalizeazaTelefon } = require('../lib/telefon');
 const { limiteazaAutentificare, limiteazaCoduriEmail } = require('../middleware/rateLimit');
 
 const DURATA_COD_MS = 15 * 60 * 1000; // 15 minute
@@ -29,7 +30,12 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     }
     const exista = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     if (exista) {
-      return res.status(409).json({ mesaj: 'Exista deja un cont cu acest email.' });
+      return res.status(409).json({ mesaj: 'Există deja un cont cu acest email. Fiecare adresă poate fi folosită la un singur cont.' });
+    }
+    // Un singur cont per număr de telefon (comparat în formă normalizată)
+    const verificareTelefon = await verificaTelefon(telefon);
+    if (verificareTelefon.eroare) {
+      return res.status(verificareTelefon.status).json({ mesaj: verificareTelefon.eroare });
     }
 
     // ── Verificare CUI la ANAF, direct la înregistrare ──────────────────────
@@ -70,7 +76,7 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
         email: email.toLowerCase().trim(),
         parola: parolaHash,
         cui: cui.trim(),
-        telefon: telefon.trim(),
+        telefon: verificareTelefon.telefon,
         // Județul ales de firmă (formularul îl precompletează din sediul social de la ANAF)
         judet: judet || cuiInfo.judetPlatforma,
         rol: ['DEZVOLTATOR', 'FURNIZOR'].includes(rol) ? rol : 'SUBCONTRACTOR',
@@ -140,7 +146,12 @@ router.put('/profil', protejat, async (req, res) => {
     if (nrAngajati !== undefined) data.nrAngajati = nrAngajati === '' ? null : Number(nrAngajati);
     if (Array.isArray(categoriiServicii)) data.categoriiServicii = categoriiServicii;
     if (Array.isArray(judeteServicii)) data.judeteServicii = judeteServicii;
-    if (telefon) data.telefon = telefon;
+    // Telefonul nou trebuie să fie valid și nefolosit de alt cont
+    if (telefon && normalizeazaTelefon(telefon) !== normalizeazaTelefon(req.utilizator.telefon)) {
+      const verificareTelefon = await verificaTelefon(telefon, req.utilizator.id);
+      if (verificareTelefon.eroare) return res.status(verificareTelefon.status).json({ mesaj: verificareTelefon.eroare });
+      data.telefon = verificareTelefon.telefon;
+    }
     if (siteWeb !== undefined) data.siteWeb = String(siteWeb).trim().slice(0, 300);
 
     const u = await prisma.user.update({
