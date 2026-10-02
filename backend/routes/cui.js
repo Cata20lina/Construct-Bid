@@ -19,6 +19,22 @@ function cuiValid(cuiCurat) {
   return control === Number(cuiCurat.slice(-1));
 }
 
+// ─── Județul de la ANAF → denumirea folosită în platformă ──────────────────
+// ANAF scrie „MUNICIPIUL BUCUREŞTI”, „BISTRIŢA-NĂSĂUD” (majuscule, ş/ţ cu
+// sedilă); platforma folosește „București”, „Bistrița-Năsăud”. Comparăm fără
+// diacritice, majuscule și prefixe administrative.
+const JUDETE_PLATFORMA = require('../localitati.json').map(x => x.judet);
+const normalizeazaJudet = (s) => String(s || '')
+  .normalize('NFD').replace(/\p{M}/gu, '')
+  .toUpperCase()
+  .replace(/^(MUNICIPIUL|JUDETUL|JUD\.)\s+/, '')
+  .replace(/[\s-]+/g, ' ')
+  .trim();
+function potrivesteJudet(judetAnaf) {
+  const cautat = normalizeazaJudet(judetAnaf);
+  return JUDETE_PLATFORMA.find(j => normalizeazaJudet(j) === cautat) || '';
+}
+
 // ─── Interogare ANAF (extrasă ca funcție, folosită de ambele rute de mai jos) ──
 // Documentație: https://static.anaf.ro/static/10/Anaf/Informatii_R/Servicii_web/doc_WS_V9.txt
 // (ANAF a mutat serviciul de pe /PlatitorTvaRest/api/v9/ws/tva, care dă acum 404.)
@@ -60,6 +76,8 @@ async function verificaCuiLaAnaf(cuiCurat) {
     denumire: dateGenerale.denumire || '',
     adresa: dateGenerale.adresa || '',
     judet: sediu.sdenumire_Judet || '',
+    // același județ, în forma din lista platformei (gol dacă nu se potrivește)
+    judetPlatforma: potrivesteJudet(sediu.sdenumire_Judet),
     nrRegCom: dateGenerale.nrRegCom || '',
     stareInregistrare: dateGenerale.stare_inregistrare || '',
     // Firmă declarată inactivă fiscal sau radiată → nu o considerăm verificată
@@ -217,3 +235,4 @@ module.exports.verificaSiSalveaza = verificaSiSalveaza;
 module.exports.verificaCuiLaAnaf = verificaCuiLaAnaf;
 module.exports.verificaBilantLaAnaf = verificaBilantLaAnaf;
 module.exports.cuiValid = cuiValid;
+module.exports.potrivesteJudet = potrivesteJudet;

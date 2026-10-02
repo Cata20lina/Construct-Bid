@@ -36,6 +36,8 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
   const [telefon, setTelefon]                = useState('');
   const [rol, setRol]                        = useState('SUBCONTRACTOR');
   const [judet, setJudet]                    = useState('');
+  // true când județul a fost completat din sediul social de la ANAF
+  const [judetDinAnaf, setJudetDinAnaf]      = useState(false);
   const [termeniAcceptati, setTermeniAcceptati] = useState(false);
 
   const [eroare, setEroare]         = useState(mesajInitial);
@@ -171,6 +173,8 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
       const data = await apiVerificaCui(cui.trim());
       setCuiRezultat(data);
       setNume(data.gasit && data.denumire ? data.denumire : '');
+      if (data.gasit && data.judetPlatforma) { setJudet(data.judetPlatforma); setJudetDinAnaf(true); }
+      else setJudetDinAnaf(false);
     } catch (err) {
       // 400 = CUI invalid, 404 = negăsit la ANAF; doar restul înseamnă ANAF indisponibil
       setNume('');
@@ -349,7 +353,7 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                         <Hash size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-                        <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); setNume(''); }} onBlur={() => { if (cui.trim() && !nume) verificaCuiApasat(); }} placeholder="Cod fiscal" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                        <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); setNume(''); if (judetDinAnaf) { setJudet(''); setJudetDinAnaf(false); } }} onBlur={() => { if (cui.trim() && !nume) verificaCuiApasat(); }} placeholder="Cod fiscal" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
                       </div>
                       <button type="button" onClick={verificaCuiApasat} disabled={cuiVerificand}
                         title="Verifică CUI la ANAF"
@@ -398,10 +402,10 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
 
                 {/* Județ */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Sediul Central (Județ)</label>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>{judetDinAnaf ? 'Sediul social (județ, de la ANAF)' : 'Sediul Central (Județ)'}</label>
                   <div style={{ position: 'relative' }}>
                     <Map size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569', zIndex: 3 }} />
-                    <select required value={judet} onChange={e => setJudet(e.target.value)} style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: judet ? '#fff' : '#64748b', fontSize: '14px', boxSizing: 'border-box', outline: 'none', appearance: 'none', cursor: 'pointer' }}>
+                    <select required disabled={judetDinAnaf} title={judetDinAnaf ? 'Județul sediului social, preluat de la ANAF' : undefined} value={judet} onChange={e => setJudet(e.target.value)} style={{ opacity: judetDinAnaf ? 0.85 : 1, width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: judet ? '#fff' : '#64748b', fontSize: '14px', boxSizing: 'border-box', outline: 'none', appearance: 'none', cursor: 'pointer' }}>
                       <option value="" disabled hidden>Alege județul...</option>
                       {judeteRomania.map(j => <option key={j} value={j} style={{ backgroundColor: '#0f172a', color: '#fff' }}>{j}</option>)}
                     </select>

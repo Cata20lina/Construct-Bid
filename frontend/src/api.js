@@ -692,6 +692,40 @@ export function apiTrimiteModificariCerere(id) {
   return postJson(`${API_URL}/cereri-materiale/${id}/trimite-modificari`, {});
 }
 
+// ─── Confirmarea identității firmei ─────────────────────────────────────────
+// formData: metoda, persoana, calitate, acord + fișierele declaratie/certificat/imputernicire
+export async function apiTrimiteIdentitate(formData) {
+  const res = await fetch(`${API_URL}/identitate`, { method: 'POST', headers: authHeaders(), body: formData });
+  return handleResponse(res);
+}
+
+// Documentele sunt private: le cerem cu token-ul și le salvăm local, nu prin link public
+export async function apiDescarcaDocumentIdentitate(id, numeOriginal) {
+  const res = await fetch(`${API_URL}/identitate/documente/${id}`, { headers: authHeaders() });
+  if (!res.ok) return handleResponse(res);
+  const url = window.URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = numeOriginal || 'document';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function apiAdminIdentitati(status = 'IN_VERIFICARE') {
+  const res = await fetch(`${API_URL}/admin/identitati?status=${status}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export function apiAdminConfirmaIdentitate(userId) {
+  return postJson(`${API_URL}/admin/identitati/${userId}/confirma`, {});
+}
+
+export function apiAdminRespingeIdentitate(userId, motiv) {
+  return postJson(`${API_URL}/admin/identitati/${userId}/respinge`, { motiv });
+}
+
 // Anunțurile/cererile proprii suspendate până la modificări
 export async function apiModificariCerute() {
   const res = await fetch(`${API_URL}/modificari`, { headers: authHeaders() });

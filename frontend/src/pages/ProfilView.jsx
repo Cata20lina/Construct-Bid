@@ -6,6 +6,7 @@ import {
   Plus, Trash2, Calendar, Trophy, Hammer, Search, Coins, Globe, Award, FileUp, Paperclip,
 } from 'lucide-react';
 import { apiActualizeazaProfil, apiAdaugaLucrare, apiStergeLucrare, apiAdaugaDisponibilitate, apiStergeDisponibilitate, apiContactOferta, apiVerificaCont, apiRetrimiteCodVerificare, apiVerificaCuiProfil, apiAdaugaRecomandare, apiStergeRecomandare, apiUploadFisiere, apiEvaluariPrimite, SERVER_URL } from '../api.js';
+import ConfirmareIdentitate from '../components/ConfirmareIdentitate.jsx';
 
 const CATEGORII_SERVICII = [
   { value: 'Structuri',   label: 'Structuri & Betoane',              icon: <Layers size={15} />,      color: '#2F6FED' },
@@ -212,6 +213,9 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
 
       {/* ── Banner status cont (verificare email + CUI) ── */}
       <StatusContCard t={t} user={user} setUser={setUser} setActiveTab={setActiveTab} />
+
+      {/* ── Confirmarea identității firmei (cine o reprezintă) ── */}
+      {user?.rol !== 'ADMIN' && <ConfirmareIdentitate t={t} user={user} setUser={setUser} />}
     </div>
   );
 }

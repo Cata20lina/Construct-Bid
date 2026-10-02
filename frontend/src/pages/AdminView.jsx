@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, Users, Flag, BarChart3, Loader, AlertCircle, Ban, CheckCircle2, Search,
   Pencil, Coins, FolderKanban, EyeOff, Eye, Trash2, X, Headset, MessageSquare, FolderOpen,
-  PauseCircle, Package, ClipboardCheck, ShieldCheck,
+  PauseCircle, Package, ClipboardCheck, ShieldCheck, BadgeCheck, Download,
 } from 'lucide-react';
 import {
   apiAdminStatistici, apiAdminUtilizatori, apiAdminSuspendaUtilizator, apiAdminReactiveazaUtilizator,
@@ -12,6 +12,7 @@ import {
   apiAdminSuspendaProiect, apiAdminAprobaProiect, apiAdminCereri, apiAdminSuspendaCerere, apiAdminAprobaCerere,
   apiAdminTrimiteMesaj, apiAdminContinutUtilizator, apiAdminStergeContinut, apiAdminStergeUtilizator,
   apiAdminDeVerificat, apiAdminVerificaCui,
+  apiAdminIdentitati, apiAdminConfirmaIdentitate, apiAdminRespingeIdentitate, apiDescarcaDocumentIdentitate,
 } from '../api.js';
 import SuportAdmin from '../components/SuportAdmin.jsx';
 
@@ -257,6 +258,7 @@ function ModalContinut({ t, utilizator, onClose }) {
 export default function AdminView({ t, tabInitial = 'statistici' }) {
   const [tab, setTab] = useState(tabInitial);
   const [deVerificat, setDeVerificat] = useState([]);
+  const [identitati, setIdentitati] = useState([]);
   const [statistici, setStatistici] = useState(null);
   const [utilizatori, setUtilizatori] = useState([]);
   const [cauta, setCauta] = useState('');
@@ -327,6 +329,34 @@ export default function AdminView({ t, tabInitial = 'statistici' }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const incarcaIdentitati = useCallback(() => {
+    setLoading(true);
+    apiAdminIdentitati()
+      .then(setIdentitati)
+      .catch(err => setEroare(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const confirmaIdentitate = async (u) => {
+    setActiuneInCurs(u._id);
+    try { await apiAdminConfirmaIdentitate(u._id); setInfo(`${u.nume}: identitate confirmată. Documentele au fost șterse.`); incarcaIdentitati(); }
+    catch (err) { setEroare(err.message); }
+    finally { setActiuneInCurs(''); }
+  };
+
+  const respingeIdentitate = (u) => setModalText({
+    titlu: `Respinge confirmarea pentru „${u.nume}”`,
+    descriere: 'Firma primește motivul și poate trimite din nou documentele. Documentele actuale se șterg.',
+    eticheta: 'Motivul respingerii',
+    textButon: 'Respinge',
+    onTrimite: async (motiv) => { await apiAdminRespingeIdentitate(u._id, motiv); incarcaIdentitati(); },
+  });
+
+  const descarca = async (d) => {
+    try { await apiDescarcaDocumentIdentitate(d._id, d.numeOriginal); }
+    catch (err) { setEroare(err.message); }
+  };
+
   // După o acțiune de moderare, reîncarcă lista din tab-ul curent
   const reincarcaModerare = (tip) => {
     if (tab === 'verificare') incarcaDeVerificat();
@@ -342,8 +372,9 @@ export default function AdminView({ t, tabInitial = 'statistici' }) {
     else if (tab === 'proiecte') incarcaProiecte();
     else if (tab === 'cereri') incarcaCereri();
     else if (tab === 'verificare') incarcaDeVerificat();
+    else if (tab === 'identitati') incarcaIdentitati();
     else if (tab === 'suport') setLoading(false); // SuportAdmin își încarcă singur datele
-  }, [tab, incarcaStatistici, incarcaUtilizatori, incarcaReclamatii, incarcaProiecte, incarcaCereri, incarcaDeVerificat]);
+  }, [tab, incarcaStatistici, incarcaUtilizatori, incarcaReclamatii, incarcaProiecte, incarcaCereri, incarcaDeVerificat, incarcaIdentitati]);
 
   // Suspendarea contului blochează login-ul și ascunde tot ce a publicat firma.
   // Firma e deconectată pe loc și vede motivul pe pagina de login.
@@ -498,6 +529,7 @@ Se șterg și toate proiectele, ofertele, cererile și produsele lui. Nu se poat
       <div className="cb-tabs" style={{ display: 'flex', gap: '6px', borderBottom: `1px solid ${t.border}`, paddingBottom: '4px' }}>
         <TabButon t={t} activ={tab === 'statistici'} onClick={() => setTab('statistici')} icon={<BarChart3 size={15} />} text="Statistici" />
         <TabButon t={t} activ={tab === 'verificare'} onClick={() => setTab('verificare')} icon={<ClipboardCheck size={15} />} text="De verificat" />
+        <TabButon t={t} activ={tab === 'identitati'} onClick={() => setTab('identitati')} icon={<BadgeCheck size={15} />} text="Identități" />
         <TabButon t={t} activ={tab === 'utilizatori'} onClick={() => setTab('utilizatori')} icon={<Users size={15} />} text="Utilizatori" />
         <TabButon t={t} activ={tab === 'proiecte'} onClick={() => setTab('proiecte')} icon={<FolderKanban size={15} />} text="Proiecte" />
         <TabButon t={t} activ={tab === 'cereri'} onClick={() => setTab('cereri')} icon={<Package size={15} />} text="Cereri materiale" />
@@ -582,6 +614,11 @@ Se șterg și toate proiectele, ofertele, cererile și produsele lui. Nu se poat
                       <div title={u.cuiDenumireOficiala} style={{ fontSize: '11.5px', color: u.cuiVerificat ? t.success : t.textSecundar, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {u.cuiVerificat ? `Verificat · ${u.cuiDenumireOficiala}` : 'Neverificat'}
                       </div>
+                      {u.identitateStatus && u.identitateStatus !== 'NECONFIRMATA' && (
+                        <div style={{ fontSize: '11.5px', color: u.identitateStatus === 'CONFIRMATA' ? t.success : u.identitateStatus === 'RESPINSA' ? '#ef4444' : t.amber }}>
+                          {{ CONFIRMATA: 'Identitate confirmată', IN_VERIFICARE: 'Identitate în verificare', RESPINSA: 'Identitate respinsă' }[u.identitateStatus]}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       {u.suspendat
@@ -755,6 +792,59 @@ Se șterg și toate proiectele, ofertele, cererile și produsele lui. Nu se poat
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.25)', backgroundColor: 'rgba(239,68,68,0.06)', color: '#ef4444', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
                 >
                   <Trash2 size={14} /> Șterge
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!loading && tab === 'identitati' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <Card t={t} style={{ fontSize: '13px', color: t.textSecundar, lineHeight: 1.6 }}>
+            Verifică pentru fiecare firmă că persoana apare ca administrator în certificatul constatator, sau că semnătura
+            electronică din PDF e validă și aparține unui administrator (deschide PDF-ul în Adobe Reader → panoul Semnături).
+            Pentru împuterniciți, verifică și împuternicirea. Documentele se șterg automat după decizie.
+          </Card>
+          {identitati.length === 0 && (
+            <Card t={t} style={{ textAlign: 'center', color: t.textSecundar }}>Nicio cerere de confirmare în așteptare.</Card>
+          )}
+          {identitati.map(u => (
+            <Card key={u._id} t={t} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: t.textPrincipal }}>{u.nume}</div>
+                  <div style={{ fontSize: '12.5px', color: t.textSecundar }}>
+                    CUI {u.cui} · {u.email} · {u.rol}
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', color: t.textSecundar }}>
+                  Trimis {u.identitateTrimisaLa ? new Date(u.identitateTrimisaLa).toLocaleString('ro-RO') : ''}
+                </span>
+              </div>
+              <div style={{ fontSize: '13.5px', color: t.textPrincipal }}>
+                <b>{u.identitatePersoana}</b>, {u.identitateCalitate === 'imputernicit' ? 'împuternicit de administrator' : 'administrator'}
+                {' · '}{u.identitateMetoda === 'semnatura' ? 'declarație cu semnătură electronică' : 'certificat constatator'}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {u.documente.map(d => (
+                  <button key={d._id} onClick={() => descarca(d)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: t.bgInput, color: t.textPrincipal, fontSize: '12.5px', cursor: 'pointer' }}>
+                    <Download size={13} />
+                    {{ declaratie_semnata: 'Declarație semnată', certificat_constatator: 'Certificat constatator', imputernicire: 'Împuternicire' }[d.tip] || d.tip}
+                    <span style={{ color: t.textSecundar }}>({Math.max(1, Math.round(d.marime / 1024))} KB)</span>
+                  </button>
+                ))}
+                {u.documente.length === 0 && <span style={{ fontSize: '12.5px', color: t.textSecundar }}>Fișierele nu mai există pe server.</span>}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={() => confirmaIdentitate(u)} disabled={actiuneInCurs === u._id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: 'none', backgroundColor: t.success, color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                  <CheckCircle2 size={14} /> Confirmă identitatea
+                </button>
+                <button onClick={() => respingeIdentitate(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.25)', backgroundColor: 'rgba(239,68,68,0.06)', color: '#ef4444', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                  <X size={14} /> Respinge
+                </button>
+                <button onClick={() => trimiteMesaj(u)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${t.border}`, backgroundColor: t.bgInput, color: t.accent, fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                  <MessageSquare size={14} /> Mesaj
                 </button>
               </div>
             </Card>

@@ -41,6 +41,11 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     if (!cuiValid(cuiCurat)) {
       return res.status(400).json({ mesaj: `CUI ${cuiCurat || cui} nu este valid (cifra de control nu se potrivește). Verifică dacă l-ai scris corect.` });
     }
+    // Un singur cont per firmă. Comparăm doar cifrele, ca „RO123” și „123” să fie aceeași firmă.
+    const [contExistent] = await prisma.$queryRaw`SELECT id FROM users WHERE regexp_replace(cui, '[^0-9]', '', 'g') = ${cuiCurat} LIMIT 1`;
+    if (contExistent) {
+      return res.status(409).json({ mesaj: `Există deja un cont pentru firma cu CUI ${cuiCurat}. Dacă este firma ta și nu tu ai creat contul, contactează echipa ConstructBid și verificăm.` });
+    }
     // Denumirea contului e cea oficială de la ANAF, deci fără răspuns de la
     // ANAF nu putem crea contul.
     let cuiInfo;
@@ -66,7 +71,9 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
         parola: parolaHash,
         cui: cui.trim(),
         telefon: telefon.trim(),
-        judet,
+        // Județul sediului social de la ANAF; cel ales în formular doar dacă
+        // denumirea de la ANAF nu se potrivește cu lista platformei
+        judet: cuiInfo.judetPlatforma || judet,
         rol: ['DEZVOLTATOR', 'FURNIZOR'].includes(rol) ? rol : 'SUBCONTRACTOR',
         codVerificare: cod,
         codVerificareExpira: new Date(Date.now() + DURATA_COD_MS),

@@ -189,6 +189,11 @@ export default function OfertaDetailView({
                   <ShieldCheck size={15} /> CUI {subcontractor.cui} verificat la ANAF
                 </div>
               )}
+              {subcontractor.identitateConfirmata && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', fontWeight: '700', color: '#10b981' }}>
+                  <ShieldCheck size={15} /> Identitate confirmată: persoana care ofertează reprezintă firma
+                </div>
+              )}
               {subcontractor.bilant && (
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: t.textSecundar, textTransform: 'uppercase', marginBottom: '8px' }}>

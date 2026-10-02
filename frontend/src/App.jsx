@@ -284,6 +284,8 @@ export default function App() {
       setActiveTab('materiale');
     } else if (tinta === 'materiale') {
       setActiveTab('materiale');
+    } else if (tinta === 'profil') {
+      setActiveTab('profil');
     } else if (tinta === 'modificari') {
       incarcaModificari();
       setActiveTab('modificari');

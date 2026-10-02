@@ -8,6 +8,7 @@ const { notificaContSuspendat } = require('../lib/mailer');
 const { creeazaNotificare } = require('../lib/notificari');
 const { recalculeazaRating } = require('../lib/rating');
 const { verificaSiSalveaza } = require('./cui');
+const { stergeDocumenteleContului } = require('../lib/documentePrivate');
 const { crediteazaTokenuri, consumaTokenuri, EroareTokeniInsuficienti } = require('../lib/tokenEconomie');
 
 const ROLURI_VALIDE = ['SUBCONTRACTOR', 'DEZVOLTATOR', 'FURNIZOR', 'ADMIN'];
@@ -161,7 +162,19 @@ router.put('/utilizatori/:id', async (req, res) => {
       if (!nume.trim()) return res.status(400).json({ mesaj: 'Denumirea firmei nu poate fi goală.' });
       data.nume = nume.trim().slice(0, 200);
     }
-    if (cui !== undefined) data.cui = String(cui).trim().slice(0, 30);
+    if (cui !== undefined) {
+      data.cui = String(cui).trim().slice(0, 30);
+      const existent = await prisma.user.findUnique({ where: { id: req.params.id }, select: { cui: true } });
+      // Alt CUI = altă firmă: verificarea ANAF și confirmarea identității nu mai sunt valabile
+      if (existent && existent.cui.replace(/[^0-9]/g, '') !== data.cui.replace(/[^0-9]/g, '')) {
+        Object.assign(data, {
+          cuiVerificat: false, cuiDenumireOficiala: '', cuiVerificatLa: null,
+          identitateStatus: 'NECONFIRMATA', identitateMetoda: '', identitatePersoana: '', identitateCalitate: '',
+          identitateTrimisaLa: null, identitateConfirmataLa: null, identitateConfirmataDe: '', identitateMotivRespingere: '',
+        });
+        await stergeDocumenteleContului(req.params.id, req.utilizator);
+      }
+    }
     if (telefon !== undefined) data.telefon = String(telefon).trim().slice(0, 30);
     if (judet !== undefined) data.judet = String(judet).trim().slice(0, 60);
     if (rol !== undefined) {
@@ -467,6 +480,70 @@ router.get('/de-verificat', async (req, res) => {
   }
 });
 
+// ═══ Confirmarea identității firmelor ══════════════════════════════════════
+
+// ─── GET /api/admin/identitati?status= ─────────────────────────────────────
+// Implicit: cererile în verificare, cele mai vechi primele.
+router.get('/identitati', async (req, res) => {
+  try {
+    const status = req.query.status || 'IN_VERIFICARE';
+    const conturi = await prisma.user.findMany({
+      where: { identitateStatus: status },
+      include: { documenteIdentitate: { orderBy: { createdAt: 'asc' } } },
+      orderBy: { identitateTrimisaLa: 'asc' },
+      take: 200,
+    });
+    res.json(conturi.map(u => ({
+      ...serializeUserAdmin(u),
+      documente: u.documenteIdentitate.map(d => ({ _id: d.id, tip: d.tip, numeOriginal: d.numeOriginal, mime: d.mime, marime: d.marime })),
+    })));
+  } catch (err) {
+    console.error('[admin GET /identitati]', err);
+    res.status(500).json({ mesaj: 'Eroare la încărcarea cererilor de confirmare.' });
+  }
+});
+
+// Decizia adminului: documentele se șterg imediat, rămâne doar rezultatul.
+async function decideIdentitate(req, res, confirmata) {
+  try {
+    const motiv = (req.body?.motiv || '').trim().slice(0, 1000);
+    if (!confirmata && !motiv) return res.status(400).json({ mesaj: 'Scrie motivul respingerii, ca firma să știe ce să corecteze.' });
+
+    const u = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!u) return res.status(404).json({ mesaj: 'Utilizatorul nu există.' });
+    if (u.identitateStatus !== 'IN_VERIFICARE') return res.status(400).json({ mesaj: 'Contul nu are o cerere de confirmare în verificare.' });
+
+    await stergeDocumenteleContului(u.id, req.utilizator);
+    const actualizat = await prisma.user.update({
+      where: { id: u.id },
+      data: {
+        identitateStatus: confirmata ? 'CONFIRMATA' : 'RESPINSA',
+        identitateConfirmataLa: confirmata ? new Date() : null,
+        identitateConfirmataDe: req.utilizator.nume,
+        identitateMotivRespingere: confirmata ? '' : motiv,
+      },
+    });
+
+    creeazaNotificare({
+      userId: u.id,
+      tip: 'alerta',
+      link: 'profil',
+      titlu: confirmata ? 'Identitatea firmei a fost confirmată' : 'Confirmarea identității a fost respinsă',
+      mesaj: confirmata
+        ? 'Profilul tău afișează acum „Identitate confirmată”.'
+        : `Motiv: ${motiv}. Poți trimite din nou documentele din profil.`,
+    });
+
+    res.json(serializeUserAdmin(actualizat));
+  } catch (err) {
+    console.error('[admin identitati decizie]', err);
+    res.status(500).json({ mesaj: 'Eroare la salvarea deciziei.' });
+  }
+}
+
+router.post('/identitati/:id/confirma', (req, res) => decideIdentitate(req, res, true));
+router.post('/identitati/:id/respinge', (req, res) => decideIdentitate(req, res, false));
+
 // ═══ Ștergere ══════════════════════════════════════════════════════════════
 
 // ─── GET /api/admin/utilizatori/:id/continut ───────────────────────────────
@@ -548,6 +625,10 @@ router.delete('/utilizatori/:id', async (req, res) => {
     return res.status(400).json({ mesaj: 'Nu îți poți șterge propriul cont.' });
   }
   try {
+    // Documentele de identitate de pe disc nu dispar odată cu rândurile din
+    // baza de date, deci le ștergem explicit înainte.
+    await stergeDocumenteleContului(id, req.utilizator);
+
     await prisma.$transaction(async (tx) => {
       await tx.project.updateMany({ where: { castigatorId: id }, data: { castigatorId: null } });
       await tx.oferta.deleteMany({ where: { subcontractorId: id } });

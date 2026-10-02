@@ -36,6 +36,14 @@ enum StatusComandaCatalog {
   anulata
 }
 
+// ── Confirmarea identității firmei (cine o reprezintă), peste verificarea ANAF ──
+enum StatusIdentitate {
+  NECONFIRMATA
+  IN_VERIFICARE
+  CONFIRMATA
+  RESPINSA
+}
+
 enum TipOfertare {
   statica
   dinamica
@@ -131,6 +139,19 @@ model User {
   // ── Suspendare cont de către un admin (fraudă, abuz etc.) ──
   suspendat      Boolean @default(false)
   suspendatMotiv String  @default("")
+
+  // ── Confirmarea identității: cine reprezintă firma, dovedit prin
+  //    declarație semnată electronic sau certificat constatator + împuternicire.
+  //    Documentele se șterg după decizie; rămân doar datele de mai jos. ──
+  identitateStatus          StatusIdentitate @default(NECONFIRMATA)
+  identitateMetoda          String           @default("") // "semnatura" | "documente"
+  identitatePersoana        String           @default("") // numele persoanei care reprezintă firma
+  identitateCalitate        String           @default("") // "administrator" | "imputernicit"
+  identitateTrimisaLa       DateTime?
+  identitateConfirmataLa    DateTime?
+  identitateConfirmataDe    String           @default("") // numele adminului care a decis
+  identitateMotivRespingere String           @default("")
+  documenteIdentitate       DocumentIdentitate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -642,4 +663,38 @@ model ComandaCatalog {
   @@index([furnizorId, status])
   @@index([cumparatorId, status])
   @@map("comenzi_catalog")
+}
+
+// ── Document încărcat pentru confirmarea identității firmei. Fișierul stă în
+//    backend/private/identitate (NU e servit public) și se descarcă doar prin
+//    ruta autentificată, de firmă sau de admin. Se șterge după decizia adminului. ──
+model DocumentIdentitate {
+  id           String   @id @default(cuid())
+  tip          String // "declaratie_semnata" | "certificat_constatator" | "imputernicire"
+  numeOriginal String
+  numeFisier   String   @unique
+  mime         String
+  marime       Int
+  createdAt    DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+  @@map("documente_identitate")
+}
+
+// ── Cine a încărcat / deschis / șters un document de identitate și când.
+//    Fără relații, ca jurnalul să rămână și după ștergerea documentului. ──
+model JurnalAccesDocument {
+  id           String   @id @default(cuid())
+  documentId   String
+  proprietarId String
+  actiune      String // "incarcat" | "descarcat" | "sters"
+  deCatreId    String
+  deCatreNume  String
+  createdAt    DateTime @default(now())
+
+  @@index([proprietarId, createdAt])
+  @@map("jurnal_acces_documente")
 }

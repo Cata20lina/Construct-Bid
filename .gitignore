@@ -10,6 +10,8 @@ dist/
 
 # Fișiere încărcate de utilizatori (se creează automat pe server)
 backend/uploads/
+# Documente private (confirmarea identității firmei) — nu se servesc public
+backend/private/
 
 # Diverse
 *.log
