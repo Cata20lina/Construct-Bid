@@ -71,9 +71,8 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
         parola: parolaHash,
         cui: cui.trim(),
         telefon: telefon.trim(),
-        // Județul sediului social de la ANAF; cel ales în formular doar dacă
-        // denumirea de la ANAF nu se potrivește cu lista platformei
-        judet: cuiInfo.judetPlatforma || judet,
+        // Județul ales de firmă (formularul îl precompletează din sediul social de la ANAF)
+        judet: judet || cuiInfo.judetPlatforma,
         rol: ['DEZVOLTATOR', 'FURNIZOR'].includes(rol) ? rol : 'SUBCONTRACTOR',
         codVerificare: cod,
         codVerificareExpira: new Date(Date.now() + DURATA_COD_MS),
