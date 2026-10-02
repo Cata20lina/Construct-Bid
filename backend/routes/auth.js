@@ -19,8 +19,9 @@ const genToken = (user) => jwt.sign(
 
 router.post('/register', limiteazaAutentificare, async (req, res) => {
   try {
-    const { nume, email, parola, cui, telefon, judet, rol, termeniAcceptati } = req.body;
-    if (!nume || !email || !parola || !cui || !telefon || !judet) {
+    // `nume` din formular e ignorat: denumirea firmei se ia de la ANAF, din CUI.
+    const { email, parola, cui, telefon, judet, rol, termeniAcceptati } = req.body;
+    if (!email || !parola || !cui || !telefon || !judet) {
       return res.status(400).json({ mesaj: 'Toate campurile sunt obligatorii.' });
     }
     if (!termeniAcceptati) {
@@ -40,22 +41,27 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     if (!cuiValid(cuiCurat)) {
       return res.status(400).json({ mesaj: `CUI ${cuiCurat || cui} nu este valid (cifra de control nu se potrivește). Verifică dacă l-ai scris corect.` });
     }
-    let cuiInfo = { gasit: false };
+    // Denumirea contului e cea oficială de la ANAF, deci fără răspuns de la
+    // ANAF nu putem crea contul.
+    let cuiInfo;
     try {
       cuiInfo = await verificaCuiLaAnaf(cuiCurat);
-      if (!cuiInfo.gasit) {
-        return res.status(400).json({ mesaj: `Nu am găsit nicio firmă înregistrată cu CUI ${cuiCurat} la ANAF. Verifică CUI-ul introdus.` });
-      }
     } catch (e) {
-      console.error('[register] ANAF indisponibil la verificarea CUI, continuăm fără verificare:', e.message);
-      cuiInfo = { gasit: false };
+      console.error('[register] ANAF indisponibil la verificarea CUI:', e.message);
+      return res.status(503).json({ mesaj: 'Serviciul ANAF nu răspunde acum, iar denumirea firmei se preia de acolo. Încearcă din nou peste câteva minute.' });
+    }
+    if (!cuiInfo.gasit) {
+      return res.status(400).json({ mesaj: `Nu am găsit nicio firmă înregistrată cu CUI ${cuiCurat} la ANAF. Verifică CUI-ul introdus.` });
+    }
+    if (cuiInfo.radiata) {
+      return res.status(400).json({ mesaj: `Firma ${cuiInfo.denumire} (CUI ${cuiCurat}) figurează ca radiată la ANAF.` });
     }
 
     const parolaHash = await bcrypt.hash(parola, 10);
     const cod = genereazaCod();
     const user = await prisma.user.create({
       data: {
-        nume: nume.trim(),
+        nume: cuiInfo.denumire,
         email: email.toLowerCase().trim(),
         parola: parolaHash,
         cui: cui.trim(),
@@ -65,11 +71,9 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
         codVerificare: cod,
         codVerificareExpira: new Date(Date.now() + DURATA_COD_MS),
         termeniAcceptatiLa: new Date(),
-        ...(cuiInfo.gasit ? {
-          cuiVerificat: !cuiInfo.stareInactiv,
-          cuiDenumireOficiala: cuiInfo.denumire || '',
-          cuiVerificatLa: new Date(),
-        } : {}),
+        cuiVerificat: !cuiInfo.stareInactiv,
+        cuiDenumireOficiala: cuiInfo.denumire,
+        cuiVerificatLa: new Date(),
       },
       include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });

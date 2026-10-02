@@ -67,8 +67,9 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
     e.preventDefault();
     setEroare('');
 
-    if (!nume.trim())    { setEroare('Completează denumirea firmei.'); return; }
     if (!cui.trim())     { setEroare('Completează CUI-ul firmei.'); return; }
+    // Denumirea vine doar de la ANAF, din CUI — firma nu o poate scrie singură
+    if (!nume.trim())    { setEroare('Verifică CUI-ul la ANAF (butonul de lângă câmp) ca să se completeze denumirea firmei.'); return; }
     if (!telefon.trim()) { setEroare('Completează telefonul de contact.'); return; }
     if (!judet)           { setEroare('Selectează județul în care are sediul firma.'); return; }
     if (!email.trim())   { setEroare('Completează adresa de email.'); return; }
@@ -169,11 +170,10 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
     try {
       const data = await apiVerificaCui(cui.trim());
       setCuiRezultat(data);
-      if (data.gasit && data.denumire && !nume.trim()) {
-        setNume(data.denumire);
-      }
+      setNume(data.gasit && data.denumire ? data.denumire : '');
     } catch (err) {
       // 400 = CUI invalid, 404 = negăsit la ANAF; doar restul înseamnă ANAF indisponibil
+      setNume('');
       if (err.status === 400 || err.status === 404) setCuiRezultat({ gasit: false, mesaj: err.message });
       else setCuiRezultat('eroare');
     } finally {
@@ -342,15 +342,6 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
                   </div>
                 </div>
 
-                {/* Nume firmă */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Denumire Firmă / PFA</label>
-                  <div style={{ position: 'relative' }}>
-                    <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-                    <input type="text" required value={nume} onChange={e => setNume(e.target.value)} placeholder="ex: SC Pro Construct SRL" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
-                  </div>
-                </div>
-
                 {/* CUI + Telefon */}
                 <div className="cb-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
@@ -358,7 +349,7 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                         <Hash size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-                        <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); }} placeholder="Cod fiscal" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                        <input type="text" required value={cui} onChange={e => { setCui(e.target.value); setCuiRezultat(null); setNume(''); }} onBlur={() => { if (cui.trim() && !nume) verificaCuiApasat(); }} placeholder="Cod fiscal" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
                       </div>
                       <button type="button" onClick={verificaCuiApasat} disabled={cuiVerificand}
                         title="Verifică CUI la ANAF"
@@ -373,6 +364,15 @@ export default function Auth({ onLoginSuccess, mesajInitial = '' }) {
                       <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
                       <input type="tel" required value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="07xx xxx xxx" style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
                     </div>
+                  </div>
+                </div>
+
+                {/* Nume firmă */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>Denumire firmă (de la ANAF)</label>
+                  <div style={{ position: 'relative' }}>
+                    <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                    <input type="text" readOnly tabIndex={-1} value={nume} placeholder="Se completează automat după verificarea CUI" title="Denumirea oficială se preia de la ANAF, din CUI" style={{ cursor: 'default', opacity: nume ? 1 : 0.7, width: '100%', padding: '14px 16px 14px 48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#1e293b', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
                   </div>
                 </div>
 

@@ -114,7 +114,9 @@ export default function OfertelemTaleView({ t, oferteleMele = [], onSelectOferta
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                <StatusPill status={o.status} />
+                {o.proiect?.esteProspectare
+                  ? <span style={{ fontSize: '11px', fontWeight: '800', backgroundColor: t.accentSoft, color: t.accent, padding: '5px 10px', borderRadius: '6px', whiteSpace: 'nowrap' }}>TRIMISĂ · PROSPECTARE</span>
+                  : <StatusPill status={o.status} />}
                 <ChevronRight size={16} color={t.textSecundar} />
               </div>
             </div>

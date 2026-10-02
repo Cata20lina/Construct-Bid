@@ -258,3 +258,13 @@ input, select, textarea { min-width: 0; }
 @media (max-width: 640px) {
   input, select, textarea { font-size: 16px !important; }
 }
+
+/* ── Antetul paginii de start (HeroSantier) ── */
+@media (max-width: 860px) {
+  .cb-hero-grila { grid-template-columns: minmax(0, 1fr) !important; padding: 28px 22px 24px !important; }
+  .cb-hero-desen { display: none; }
+}
+@media (max-width: 480px) {
+  .cb-hero-cifre > div { padding: 12px 12px !important; }
+  .cb-hero-cifre > div > div:first-child { font-size: 17px !important; }
+}

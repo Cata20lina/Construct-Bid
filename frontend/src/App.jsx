@@ -393,6 +393,8 @@ export default function App() {
   };
 
   // ── Adaugă ofertă (folosit doar pentru OFERTARE STATICĂ; cea dinamică se trimite direct din ProiectDetailView) ──
+  // Întoarce true doar dacă serverul a salvat oferta, ca pagina proiectului
+  // să nu afișeze „trimis” când oferta a fost de fapt refuzată.
   const adaugaOfertaLaProiect = async (payload) => {
     setLoadingOferta(true);
     setErrorOferta('');
@@ -400,9 +402,11 @@ export default function App() {
       await apiTrimiteOferta(payload);
       incarcaOferteleMele();
       incarcaProiecte();
+      return true;
     } catch (error) {
       setErrorOferta(error.message || 'Nu s-a putut trimite oferta.');
       console.error(error);
+      return false;
     } finally {
       setLoadingOferta(false);
     }
@@ -538,6 +542,7 @@ export default function App() {
             t={teme[modTema]}
             setActiveTab={setActiveTab}
             user={user}
+            proiecte={proiecte}
           />
         )}
 

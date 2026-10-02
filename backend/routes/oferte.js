@@ -246,6 +246,9 @@ router.put('/:id/status', protejat, doarRol('DEZVOLTATOR'), async (req, res) => 
     if (oferta.proiect.dezvoltatorId !== req.utilizator.id) {
       return res.status(403).json({ mesaj: 'Nu ai permisiunea sa modifici aceasta oferta.' });
     }
+    if (oferta.proiect.esteProspectare) {
+      return res.status(400).json({ mesaj: 'Ofertele primite la prospectarea pietei nu se accepta sau resping.' });
+    }
     if (oferta.proiect.tipOfertare === 'dinamica') {
       return res.status(400).json({ mesaj: 'Pentru licitatie dinamica, castigatorul este ales automat la finalul licitatiei.' });
     }

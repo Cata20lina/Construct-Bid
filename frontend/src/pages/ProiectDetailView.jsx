@@ -195,13 +195,15 @@ export default function ProiectDetailView({
   const handleSubmitOfertaStatica = async (e) => {
     e.preventDefault();
     const { fisiere: fisiereSalvate } = await apiUploadFisiere(fisiere).catch(() => ({ fisiere: [] }));
-    await onAdaugaOferta({
+    const salvata = await onAdaugaOferta({
       proiect: proiect._id,
       valoare: formOferta.pret,
       termenExecutie: formOferta.zile,
       descriere: formOferta.mesaj,
       documente: fisiereSalvate.map(f => f.numeFisier),
     });
+    // Dacă serverul a refuzat oferta, formularul rămâne completat și eroarea vizibilă
+    if (!salvata) return;
     setTrimisOK(true);
     setFormOferta({ pret: '', zile: '', mesaj: '' });
     setFisiere([]);
@@ -717,8 +719,8 @@ export default function ProiectDetailView({
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}><FileText size={12} /> Mesaj pentru Dezvoltator</label>
-                      <textarea rows={4}
+                      <label style={labelStyle}><FileText size={12} /> Mesaj pentru Dezvoltator (obligatoriu)</label>
+                      <textarea rows={4} required
                         placeholder="Prezintă-ți experiența relevantă, echipa disponibilă, sau orice condiție specială..."
                         value={formOferta.mesaj}
                         onChange={e => setFormOferta({ ...formOferta, mesaj: e.target.value })}
@@ -869,6 +871,24 @@ function OferteleDezvoltatorStatic({ proiect, t, onSelectOferta, StatusBadge }) 
             Niciun subcontractor nu a licitat încă.
           </p>
         ) : (
+          proiect.esteProspectare ? (
+            // Prospectare piață: doar oferte primite, fără acceptare/respingere
+            oferte.map(o => (
+              <div key={o._id} style={{ padding: '14px 16px', borderRadius: '10px', backgroundColor: t.bgInput, border: `1px solid ${t.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: '700', fontSize: '14px', color: t.textPrincipal }}>{o.subcontractor?.nume || 'Ofertant'}</span>
+                  <span style={{ fontSize: '12px', color: t.textSecundar }}>{new Date(o.createdAt).toLocaleDateString('ro-RO')}</span>
+                </div>
+                <div style={{ fontSize: '12.5px', color: t.textSecundar, marginTop: '4px' }}>
+                  <span style={{ color: '#10b981', fontWeight: '800' }}>{Number(o.valoare).toLocaleString()} {o.moneda}</span>
+                  {' '}&nbsp;•&nbsp; {o.termenExecutie} zile execuție
+                </div>
+                {o.descriere && (
+                  <div style={{ fontSize: '13px', color: t.textPrincipal, marginTop: '8px', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{o.descriere}</div>
+                )}
+              </div>
+            ))
+          ) :
           oferte.map((o, idx) => (
             <div
               key={o._id}

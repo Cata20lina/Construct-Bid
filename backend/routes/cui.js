@@ -178,6 +178,8 @@ async function verificaSiSalveaza(utilizator) {
   const u = await prisma.user.update({
     where: { id: utilizator.id },
     data: {
+      // Numele contului ține pasul cu denumirea oficială de la ANAF
+      nume: rezultat.denumire || utilizator.nume,
       cuiVerificat: !rezultat.stareInactiv,
       cuiDenumireOficiala: rezultat.denumire,
       cuiVerificatLa: new Date(),

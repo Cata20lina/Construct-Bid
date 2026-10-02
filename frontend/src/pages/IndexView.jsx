@@ -1,9 +1,10 @@
 import React from 'react';
 import {
-  ArrowRight, Building2, HardHat, ShieldCheck, Zap, FileCheck2,
+  ArrowRight, Building2, ShieldCheck, Zap, FileCheck2,
   Send, Gavel, Users, MapPin, Bell, Layers, Wrench,
   Paintbrush2, Coins, Hash, Radar, ChevronRight, CheckCircle2,
 } from 'lucide-react';
+import HeroSantier from '../components/HeroSantier.jsx';
 
 // ─── Etichetă de secțiune stil "Ofertă de desen tehnic" (dimension line) ─────
 // Semnătura vizuală a paginii: liniile scurte cu bare perpendiculare la
@@ -24,7 +25,7 @@ function EtichetaSectiune({ t, children }) {
   );
 }
 
-export default function IndexView({ t, setActiveTab, user }) {
+export default function IndexView({ t, setActiveTab, user, proiecte = [] }) {
   const esteSubcontractor = user?.rol === 'SUBCONTRACTOR';
   const esteFurnizor = user?.rol === 'FURNIZOR';
 
@@ -139,71 +140,14 @@ export default function IndexView({ t, setActiveTab, user }) {
         }
       `}</style>
 
-      {/* ── Hero — pe fundal de "hârtie milimetrică" de șantier, cu colțuri de reper ── */}
-      <div
-        className="cb-idx-in-1"
-        style={{
-          position: 'relative', textAlign: 'center', padding: '56px 28px 48px', maxWidth: '820px', margin: '0 auto 8px',
-          backgroundImage: `repeating-linear-gradient(0deg, ${t.border} 0px, ${t.border} 1px, transparent 1px, transparent 32px), repeating-linear-gradient(90deg, ${t.border} 0px, ${t.border} 1px, transparent 1px, transparent 32px)`,
-          borderRadius: '18px', '--cb-accent': t.accent,
-        }}
-      >
-        <span className="cb-idx-corner tl" style={{ '--cb-accent': t.accent }} />
-        <span className="cb-idx-corner tr" style={{ '--cb-accent': t.accent }} />
-        <span className="cb-idx-corner bl" style={{ '--cb-accent': t.accent }} />
-        <span className="cb-idx-corner br" style={{ '--cb-accent': t.accent }} />
-
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: '8px',
-          fontFamily: t.fontMono, fontSize: '11.5px', fontWeight: '700', color: t.accent,
-          textTransform: 'uppercase', letterSpacing: '1.5px', backgroundColor: t.accentSoft,
-          padding: '6px 14px', borderRadius: '999px', marginBottom: '22px',
-        }}>
-          <HardHat size={13} /> ConstructBid
-        </span>
-        <h1 style={{
-          fontFamily: t.fontDisplay, fontSize: 'clamp(30px, 5vw, 46px)', fontWeight: '800',
-          color: t.textPrincipal, margin: '0 0 16px', letterSpacing: '-1px', lineHeight: 1.15,
-        }}>
-          Șantiere și oferte,{' '}
-          <span style={{ background: t.accentGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            fără hârtii și telefoane
-          </span>
-        </h1>
-        <p style={{ fontSize: '16px', color: t.textSecundar, lineHeight: 1.6, margin: '0 0 32px', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
-          {esteSubcontractor
-            ? 'Bine ai revenit, ' + (user?.nume || '') + '. Găsește proiecte potrivite firmei tale și trimite oferte direct din platformă, fără intermediari.'
-            : esteFurnizor
-            ? 'Bine ai revenit, ' + (user?.nume || '') + '. Completează catalogul de materiale și fii găsit de dezvoltatori și subcontractori din zona ta.'
-            : 'Bine ai revenit, ' + (user?.nume || '') + '. Publică lucrarea, primește oferte de la subcontractori verificați și alege câștigătorul în siguranță.'}
-        </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            className="cb-idx-btn-primary"
-            onClick={() => setActiveTab && setActiveTab(tabButonPrincipal)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: t.accentGradient, color: '#fff', border: 'none', borderRadius: '10px',
-              padding: '13px 24px', fontSize: '14.5px', fontWeight: '700', cursor: 'pointer',
-              boxShadow: `0 8px 20px ${t.accentSoft}`,
-            }}
-          >
-            {textButonPrincipal} <ArrowRight size={16} />
-          </button>
-          <button
-            className="cb-idx-btn-ghost"
-            onClick={() => setActiveTab && setActiveTab('prospectare')}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              backgroundColor: 'transparent', color: t.textPrincipal, border: `1px solid ${t.borderStrong}`,
-              borderRadius: '10px', padding: '13px 24px', fontSize: '14.5px', fontWeight: '700', cursor: 'pointer',
-              '--cb-accent': t.accent,
-            }}
-          >
-            Explorează Prospectare Piață
-          </button>
-        </div>
-      </div>
+      <HeroSantier
+        t={t}
+        user={user}
+        proiecte={proiecte}
+        textButon={textButonPrincipal}
+        onButonPrincipal={() => setActiveTab && setActiveTab(tabButonPrincipal)}
+        onProspectare={() => setActiveTab && setActiveTab('prospectare')}
+      />
 
       {/* ── Fapte rapide despre platformă ── */}
       <div className="cb-idx-in-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '14px', margin: '40px 0 64px' }}>
