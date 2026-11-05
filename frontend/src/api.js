@@ -40,6 +40,11 @@ async function handleResponse(res) {
     if (res.status === 403 && mesaj.startsWith('Contul tău a fost suspendat')) {
       window.dispatchEvent(new CustomEvent('cb-cont-suspendat', { detail: mesaj }));
     }
+    // Sesiune pierdută (token lipsă, expirat sau invalid): App deconectează
+    // utilizatorul în loc să lase paginile să afișeze eroarea brută
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('cb-sesiune-expirata'));
+    }
     const err = new Error(mesaj);
     err.status = res.status;
     err.payload = data;

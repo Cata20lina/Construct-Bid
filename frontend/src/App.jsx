@@ -133,8 +133,17 @@ export default function App() {
         setUser(data.utilizator);
         setActiveTab('index');
       })
-      .catch(() => {
-        setToken(null); // token invalid/expirat
+      .catch((err) => {
+        // Ștergem token-ul doar dacă serverul l-a respins (401 = invalid/expirat,
+        // 403 = cont suspendat). La 503, timeout sau fără internet (ex. Render
+        // pornește) token-ul e încă bun — dacă l-am șterge, celelalte tab-uri și
+        // paginile readuse cu „Back” ar rămâne logate, dar fără token.
+        if (err.status === 401 || err.status === 403) {
+          setToken(null);
+          if (err.status === 403) setMesajDeconectare(err.message);
+        } else {
+          setMesajDeconectare('Serverul nu răspunde momentan. Reîncarcă pagina peste câteva secunde.');
+        }
       })
       .finally(() => setVerificareSesiune(false));
   }, []);
@@ -319,11 +328,14 @@ export default function App() {
     };
     const dinApi = (e) => deconecteaza(e.detail);
     const dinSocket = ({ motiv } = {}) => deconecteaza(`Contul tău a fost suspendat.${motiv ? ` Motiv: ${motiv}` : ''} Contactează-ne dacă crezi că e o greșeală.`);
+    const sesiuneExpirata = () => deconecteaza('Sesiunea a expirat. Autentifică-te din nou.');
     window.addEventListener('cb-cont-suspendat', dinApi);
+    window.addEventListener('cb-sesiune-expirata', sesiuneExpirata);
     const socket = getSocket();
     socket.on('cont_suspendat', dinSocket);
     return () => {
       window.removeEventListener('cb-cont-suspendat', dinApi);
+      window.removeEventListener('cb-sesiune-expirata', sesiuneExpirata);
       socket.off('cont_suspendat', dinSocket);
     };
   }, [user]);

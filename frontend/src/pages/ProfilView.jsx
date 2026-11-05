@@ -103,13 +103,25 @@ export default function ProfilView({ user, t, proiecte = [], oferteleMele = [], 
               }}>
                 {user?.rol}
               </span>
-              <span style={{
-                fontSize: '11px', fontWeight: '800',
-                backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981',
-                padding: '5px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
-              }}>
-                <ShieldCheck size={12} /> VERIFICAT
-              </span>
+              {/* „Verificat” doar după ce un admin a confirmat identitatea firmei */}
+              {user?.identitate?.status === 'CONFIRMATA' && (
+                <span style={{
+                  fontSize: '11px', fontWeight: '800',
+                  backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981',
+                  padding: '5px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
+                }}>
+                  <ShieldCheck size={12} /> VERIFICAT
+                </span>
+              )}
+              {user?.identitate?.status === 'IN_VERIFICARE' && (
+                <span style={{
+                  fontSize: '11px', fontWeight: '800',
+                  backgroundColor: 'rgba(255,158,44,0.1)', color: '#FF9E2C',
+                  padding: '5px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
+                }}>
+                  ÎN VERIFICARE
+                </span>
+              )}
             </div>
           </div>
 
