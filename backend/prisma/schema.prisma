@@ -132,6 +132,7 @@ model User {
   // ── Resetare parolă uitată — cod din 6 cifre trimis pe email ──
   codResetareParola       String?
   codResetareParolaExpira DateTime?
+  incercariResetare       Int       @default(0) // coduri greșite introduse pentru codul curent
 
   // ── Acceptare Termeni și Condiții / Confidențialitate la înregistrare ──
   termeniAcceptatiLa DateTime?

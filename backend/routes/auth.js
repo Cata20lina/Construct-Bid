@@ -8,7 +8,9 @@ const { protejat } = require('../middleware/auth');
 const { trimiteCodVerificare, trimiteCodResetareParola, genereazaCod } = require('../lib/mailer');
 const { verificaCuiLaAnaf, cuiValid } = require('./cui');
 const { verificaTelefon, normalizeazaTelefon } = require('../lib/telefon');
-const { limiteazaAutentificare, limiteazaCoduriEmail } = require('../middleware/rateLimit');
+const { limiteazaAutentificare, limiteazaCoduriEmail, limiteazaVerificareCod } = require('../middleware/rateLimit');
+
+const MAX_INCERCARI_RESETARE = 5;
 
 const DURATA_COD_MS = 15 * 60 * 1000; // 15 minute
 
@@ -30,7 +32,7 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     }
     const exista = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     if (exista) {
-      return res.status(409).json({ mesaj: 'Există deja un cont cu acest email. Fiecare adresă poate fi folosită la un singur cont.' });
+      return res.status(409).json({ mesaj: 'Există deja un cont cu acest email.' });
     }
     // Un singur cont per număr de telefon (comparat în formă normalizată)
     const verificareTelefon = await verificaTelefon(telefon);
@@ -38,11 +40,6 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
       return res.status(verificareTelefon.status).json({ mesaj: verificareTelefon.eroare });
     }
 
-    // ── Verificare CUI la ANAF, direct la înregistrare ──────────────────────
-    // Blocăm doar dacă ANAF confirmă clar că nu există nicio firmă cu acest
-    // CUI (cineva a inventat un cod fiscal). Dacă ANAF nu răspunde (serviciu
-    // căzut, timeout), NU blocăm înregistrarea — nu e vina utilizatorului că
-    // ANAF e indisponibil, iar contul poate fi verificat ulterior din profil.
     const cuiCurat = String(cui).replace(/[^0-9]/g, '');
     if (!cuiValid(cuiCurat)) {
       return res.status(400).json({ mesaj: `CUI ${cuiCurat || cui} nu este valid (cifra de control nu se potrivește). Verifică dacă l-ai scris corect.` });
@@ -52,8 +49,6 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     if (contExistent) {
       return res.status(409).json({ mesaj: `Există deja un cont pentru firma cu CUI ${cuiCurat}. Dacă este firma ta și nu tu ai creat contul, contactează echipa ConstructBid și verificăm.` });
     }
-    // Denumirea contului e cea oficială de la ANAF, deci fără răspuns de la
-    // ANAF nu putem crea contul.
     let cuiInfo;
     try {
       cuiInfo = await verificaCuiLaAnaf(cuiCurat);
@@ -93,8 +88,6 @@ router.post('/register', limiteazaAutentificare, async (req, res) => {
     try {
       await trimiteCodVerificare(user.email, user.nume, cod);
     } catch (e) {
-      // Nu blocăm înregistrarea dacă emailul nu poate fi trimis — contul
-      // rămâne creat, iar utilizatorul poate cere un cod nou din /retrimite-cod.
       console.error('[register] eroare trimitere email verificare:', e.message);
     }
 
@@ -166,8 +159,6 @@ router.put('/profil', protejat, async (req, res) => {
   }
 });
 
-// ─── PORTOFOLIU — SUBCONTRACTOR (lucrări realizate) și FURNIZOR (catalog de
-//     produse/materiale, refolosind același model) ────────────────────────────
 router.post('/lucrari', protejat, async (req, res) => {
   try {
     if (!['SUBCONTRACTOR', 'FURNIZOR'].includes(req.utilizator.rol)) {
@@ -184,8 +175,6 @@ router.post('/lucrari', protejat, async (req, res) => {
         descriere: (descriere || '').trim().slice(0, 600),
         an: an ? Number(an) : null,
         categorie: categorie || '',
-        // Relevante doar pentru catalogul unui FURNIZOR — un subcontractor
-        // pur și simplu nu le trimite, și rămân null.
         pret: pret !== undefined && pret !== null && pret !== '' ? Number(pret) : null,
         unitateMasura: unitateMasura ? String(unitateMasura).trim().slice(0, 20) : '',
       },
@@ -215,7 +204,6 @@ router.delete('/lucrari/:lucrareId', protejat, async (req, res) => {
   }
 });
 
-// ─── DISPONIBILITATE (perioade libere) — doar SUBCONTRACTOR ──────────────────
 router.post('/disponibilitate', protejat, async (req, res) => {
   try {
     if (req.utilizator.rol !== 'SUBCONTRACTOR') {
@@ -258,8 +246,6 @@ router.delete('/disponibilitate/:intervalId', protejat, async (req, res) => {
   }
 });
 
-// ─── RECOMANDĂRI / REFERINȚE (contracte încheiate, cu document justificativ) —
-//     SUBCONTRACTOR și FURNIZOR ────────────────────────────────────────────────
 router.post('/recomandari', protejat, async (req, res) => {
   try {
     if (!['SUBCONTRACTOR', 'FURNIZOR'].includes(req.utilizator.rol)) {
@@ -305,7 +291,6 @@ router.delete('/recomandari/:recomandareId', protejat, async (req, res) => {
   }
 });
 
-// ─── RATING — evaluările primite de contul curent (subcontractor) ────────────
 router.get('/evaluari-primite', protejat, async (req, res) => {
   try {
     const evaluari = await prisma.evaluare.findMany({
@@ -323,7 +308,6 @@ router.get('/evaluari-primite', protejat, async (req, res) => {
   }
 });
 
-// ─── VERIFICARE CONT PRIN COD TRIMIS PE EMAIL ─────────────────────────────────
 router.post('/verifica-cont', protejat, async (req, res) => {
   try {
     if (req.utilizator.verificat) {
@@ -363,10 +347,6 @@ router.post('/retrimite-cod', protejat, limiteazaCoduriEmail, async (req, res) =
       data: { codVerificare: cod, codVerificareExpira: new Date(Date.now() + DURATA_COD_MS) },
     });
 
-    // Codul e deja salvat în baza de date la acest punct — nu lăsăm un eșec
-    // de trimitere email (SMTP căzut temporar, rețea etc.) să întoarcă 500,
-    // pentru că utilizatorul tot poate cere din nou codul, iar contul nu
-    // trebuie să rămână blocat din cauza unei probleme tranzitorii de rețea.
     let emailTrimis = true;
     try {
       await trimiteCodVerificare(u.email, u.nume, cod);
@@ -387,16 +367,6 @@ router.post('/retrimite-cod', protejat, limiteazaCoduriEmail, async (req, res) =
   }
 });
 
-// ─── Resetare parolă uitată ──────────────────────────────────────────────
-// Flux în doi pași, cu cod din 6 cifre (la fel ca verificarea de email) —
-// nu link-uri cu token, pentru că frontend-ul e un SPA fără rutare proprie.
-//
-// POST /auth/solicita-resetare { email } — generează codul și îl trimite.
-// Spune explicit dacă emailul nu are cont pe platformă (cerință punctuală) —
-// notă: asta face posibilă enumerarea emailurilor înregistrate (cineva poate
-// încerca adrese la întâmplare și vede care există). Acceptabil pentru un
-// beta cu utilizatori cunoscuți; dacă platforma ajunge publică, ideal ar fi
-// revenit la un mesaj generic, identic indiferent dacă emailul există sau nu.
 router.post('/solicita-resetare', limiteazaCoduriEmail, async (req, res) => {
   try {
     const { email } = req.body;
@@ -412,7 +382,7 @@ router.post('/solicita-resetare', limiteazaCoduriEmail, async (req, res) => {
     const cod = genereazaCod();
     await prisma.user.update({
       where: { id: user.id },
-      data: { codResetareParola: cod, codResetareParolaExpira: new Date(Date.now() + DURATA_COD_MS) },
+      data: { codResetareParola: cod, codResetareParolaExpira: new Date(Date.now() + DURATA_COD_MS), incercariResetare: 0 },
     });
 
     let emailTrimis = true;
@@ -435,10 +405,7 @@ router.post('/solicita-resetare', limiteazaCoduriEmail, async (req, res) => {
   }
 });
 
-// POST /auth/reseteaza-parola { email, cod, parolaNoua } — validează codul
-// și schimbă parola. Nu necesită autentificare (utilizatorul tocmai și-a
-// uitat parola).
-router.post('/reseteaza-parola', limiteazaCoduriEmail, async (req, res) => {
+router.post('/reseteaza-parola', limiteazaVerificareCod, async (req, res) => {
   try {
     const { email, cod, parolaNoua } = req.body;
     if (!email || !cod || !parolaNoua) {
@@ -447,9 +414,23 @@ router.post('/reseteaza-parola', limiteazaCoduriEmail, async (req, res) => {
     if (parolaNoua.length < 6) {
       return res.status(400).json({ mesaj: 'Parola trebuie să aibă cel puțin 6 caractere.' });
     }
-
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
-    if (!user || !user.codResetareParola || user.codResetareParola !== String(cod).trim()) {
+    if (!user || !user.codResetareParola) {
+      return res.status(400).json({ mesaj: 'Cod de resetare incorect.' });
+    }
+    if (user.codResetareParola !== String(cod).trim()) {
+      const { incercariResetare } = await prisma.user.update({
+        where: { id: user.id },
+        data: { incercariResetare: { increment: 1 } },
+        select: { incercariResetare: true },
+      });
+      if (incercariResetare >= MAX_INCERCARI_RESETARE) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { codResetareParola: null, codResetareParolaExpira: null, incercariResetare: 0 },
+        });
+        return res.status(400).json({ mesaj: 'Prea multe încercări greșite. Cere un cod nou.' });
+      }
       return res.status(400).json({ mesaj: 'Cod de resetare incorect.' });
     }
     if (!user.codResetareParolaExpira || user.codResetareParolaExpira.getTime() < Date.now()) {
@@ -459,7 +440,7 @@ router.post('/reseteaza-parola', limiteazaCoduriEmail, async (req, res) => {
     const parolaHash = await bcrypt.hash(parolaNoua, 10);
     const u = await prisma.user.update({
       where: { id: user.id },
-      data: { parola: parolaHash, codResetareParola: null, codResetareParolaExpira: null },
+      data: { parola: parolaHash, codResetareParola: null, codResetareParolaExpira: null, incercariResetare: 0 },
       include: { lucrari: true, disponibilitati: true, recomandari: { orderBy: { createdAt: 'desc' } } },
     });
 
@@ -471,3 +452,4 @@ router.post('/reseteaza-parola', limiteazaCoduriEmail, async (req, res) => {
 });
 
 module.exports = router;
+

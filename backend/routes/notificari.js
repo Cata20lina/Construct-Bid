@@ -4,7 +4,6 @@ const prisma = require('../lib/prisma');
 const { protejat } = require('../middleware/auth');
 const { serializeNotificare } = require('../lib/serialize');
 
-// ─── GET /api/notificari — ultimele notificări ale utilizatorului curent ──────
 router.get('/', protejat, async (req, res) => {
   try {
     const notificari = await prisma.notificare.findMany({
@@ -19,7 +18,6 @@ router.get('/', protejat, async (req, res) => {
   }
 });
 
-// ─── PUT /api/notificari/:id/citeste — marcheaza o notificare ca citita ───────
 router.put('/:id/citeste', protejat, async (req, res) => {
   try {
     const notificare = await prisma.notificare.findUnique({ where: { id: req.params.id } });
@@ -34,7 +32,6 @@ router.put('/:id/citeste', protejat, async (req, res) => {
   }
 });
 
-// ─── PUT /api/notificari/citeste-toate — marcheaza toate notificarile ca citite ──
 router.put('/citeste-toate', protejat, async (req, res) => {
   try {
     await prisma.notificare.updateMany({
@@ -48,7 +45,6 @@ router.put('/citeste-toate', protejat, async (req, res) => {
   }
 });
 
-// ─── DELETE /api/notificari/:id ────────────────────────────────────────────────
 router.delete('/:id', protejat, async (req, res) => {
   try {
     const notificare = await prisma.notificare.findUnique({ where: { id: req.params.id } });
@@ -63,7 +59,6 @@ router.delete('/:id', protejat, async (req, res) => {
   }
 });
 
-// ─── DELETE /api/notificari — sterge toate notificarile utilizatorului curent ──
 router.delete('/', protejat, async (req, res) => {
   try {
     await prisma.notificare.deleteMany({ where: { userId: req.utilizator.id } });

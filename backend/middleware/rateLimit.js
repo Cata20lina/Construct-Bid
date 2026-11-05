@@ -27,6 +27,17 @@ const limiteazaCoduriEmail = rateLimit({
   handler: raspunsLimitare('Ai cerut prea multe coduri recent. Te rugăm să aștepți câteva minute.'),
 });
 
+// Verificarea codului de resetare: limitator separat, ca greșelile de tastare
+// să nu consume din cota de cereri de cod (și invers). Ghicitul e oprit în
+// principal de contorul de încercări per cont (5 greșeli invalidează codul).
+const limiteazaVerificareCod = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: raspunsLimitare('Prea multe încercări. Te rugăm să aștepți câteva minute.'),
+});
+
 // Verificare CUI la ANAF: serviciul extern nu are nevoie să fie bombardat,
 // iar fiecare apel e un request extern real.
 const limiteazaCui = rateLimit({
@@ -47,4 +58,4 @@ const limiteazaMesajeSuport = rateLimit({
   handler: raspunsLimitare('Trimiți mesaje prea repede. Te rugăm să aștepți un minut.'),
 });
 
-module.exports = { limiteazaAutentificare, limiteazaCoduriEmail, limiteazaCui, limiteazaMesajeSuport };
+module.exports = { limiteazaAutentificare, limiteazaCoduriEmail, limiteazaVerificareCod, limiteazaCui, limiteazaMesajeSuport };

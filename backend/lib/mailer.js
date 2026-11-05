@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 // ─── Trimitere email ──────────────────────────────────────────────────────
@@ -207,7 +208,7 @@ async function trimiteCodResetareParola(email, nume, cod) {
 }
 
 function genereazaCod() {
-  return String(Math.floor(100000 + Math.random() * 900000)); // cod din 6 cifre
+  return String(crypto.randomInt(100000, 1000000)); // cod din 6 cifre, generator criptografic
 }
 
 module.exports = {
